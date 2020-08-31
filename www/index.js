@@ -1,11 +1,12 @@
 import { RustCanvas } from "rust-graphics";
+import { memory } from "rust-graphics/rust_graphics_bg";
 
 const CANVAS_WIDTH = 512;
 const CANVAS_HEIGHT = 512;
 
 let isSpawningParticles = false;
-let spawnX = 0;
-let spawnY = 0;
+let mouseX = 0;
+let mouseY = 0;
 
 let canvas = document.createElement("canvas");
 canvas.width = CANVAS_WIDTH;
@@ -13,43 +14,49 @@ canvas.height = CANVAS_HEIGHT;
 document.body.appendChild(canvas);
 const ctx = canvas.getContext("2d");
 
-canvas.addEventListener("mousedown", (e) => {
-  spawnX = e.offsetX;
-  spawnY = e.offsetY;
+canvas.addEventListener("pointerdown", (e) => {
+  mouseX = e.offsetX;
+  mouseY = e.offsetY;
   isSpawningParticles = true;
 });
 
-canvas.addEventListener("mousemove", (e) => {
-  spawnX = e.offsetX;
-  spawnY = e.offsetY;
+canvas.addEventListener("pointermove", (e) => {
+  mouseX = e.offsetX;
+  mouseY = e.offsetY;
 });
 
-window.addEventListener("mouseup", (e) => {
+window.addEventListener("pointerup", (e) => {
   isSpawningParticles = false;
 });
 
 const rustCanvas = RustCanvas.new(CANVAS_WIDTH, CANVAS_HEIGHT);
-rustCanvas.initialize_particles(20000);
+rustCanvas.initialize_particles(200);
 
-let lastFrameTime = performance.now();
-let currentFrameTime = performance.now();
-let testBuffer = new ArrayBuffer(CANVAS_WIDTH * CANVAS_HEIGHT * 4);
-let view = new Uint32Array(testBuffer);
-for (let i = 0; i < view.length; i++) {
-  view[i] = 0xff0000ff;
-}
-let view2 = new Uint8Array(testBuffer);
-// let pixelData = Uint8ClampedArray.from(view2);
-let pixelData = new Uint8ClampedArray(testBuffer);
+let pixelDataPtr = rustCanvas.get_pixel_data_ptr();
+let pixelData = new Uint8ClampedArray(
+  memory.buffer,
+  pixelDataPtr,
+  CANVAS_WIDTH * CANVAS_HEIGHT * 4
+);
 let image = new ImageData(pixelData, CANVAS_WIDTH, CANVAS_HEIGHT);
+let currentFrameTime = performance.now();
 const renderLoop = () => {
-  // currentFrameTime = performance.now();
-  // if (isSpawningParticles) {
-  //   rustCanvas.spawn_particle(spawnX, spawnY, 0, 0);
-  // }
-  // rustCanvas.update((currentFrameTime - lastFrameTime) / 1000.0);
-  // rustCanvas.render(ctx);
-  // lastFrameTime = currentFrameTime;
+  let lastFrameTime = currentFrameTime;
+  currentFrameTime = performance.now();
+  let frameDelta = (currentFrameTime - lastFrameTime) / 1000.0;
+  if (isSpawningParticles) {
+    for (let i = 0; i < 5; i++) {
+      let randPosRange = 8;
+      let randVelRange = 60;
+      let spawnX = mouseX + (Math.random() * randPosRange - randPosRange / 2);
+      let spawnY = mouseY + (Math.random() * randPosRange - randPosRange / 2);
+      let spawnVelX = Math.random() * randVelRange - randVelRange / 2;
+      let spawnVelY = Math.random() * randVelRange - randVelRange / 2;
+      rustCanvas.spawn_particle(spawnX, spawnY, spawnVelX, spawnVelY);
+    }
+  }
+  rustCanvas.update(frameDelta);
+  rustCanvas.render();
   ctx.putImageData(image, 0, 0);
   requestAnimationFrame(renderLoop);
 };
