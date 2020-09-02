@@ -49,8 +49,8 @@ window.addEventListener("pointerup", (e) => {
   if (e.button === 0) {
     isSpawningParticles = false;
     if (isDragging) {
-      rustCanvas.release_selection();
       isDragging = false;
+      rustCanvas.release_selection();
     }
   }
 });
