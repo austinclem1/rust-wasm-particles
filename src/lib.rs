@@ -108,8 +108,8 @@ impl RustCanvas {
             particle.pos.0 += particle.vel.0 * delta;
             particle.pos.1 += particle.vel.1 * delta;
 
-            // particle.vel.0 *= 0.995;
-            // particle.vel.1 *= 0.995;
+            particle.vel.0 *= 0.999;
+            particle.vel.1 *= 0.999;
             // if particle.pos.0 < 0.0 || particle.pos.0 >= self.width as f64 {
             //     particle.vel.0 *= -0.8;
             //     particle.pos.0 = particle.pos.0.max(0.0);
@@ -127,66 +127,17 @@ impl RustCanvas {
         let _timer = Timer::new("RustCanvas::render");
         {
             let _timer = Timer::new("draw background");
-            self.pixel_buffer.draw_rect_rgb(
-                0,
-                0,
-                self.width,
-                self.height,
-                Color::from_u32(0x000000ff),
-            );
+            self.draw_background();
         }
         {
             let _timer = Timer::new("draw particles");
-            // for i in 0..self.particles.len() {
-            //     let p = &self.particles[i];
-            //     let rect_size = p.size;
-            //     let mut rect_color = p.color;
-            //     let mut pos_vec = p.prev_positions.clone();
-            //     pos_vec.push_front(p.pos);
-            //     for pos in pos_vec {
-            //         rect_color.a = (rect_color.a as f64 * TrailParticle::TRAIL_FADE_RATIO) as u8;
-            //         self.pixel_buffer.draw_rect_rgba(
-            //             pos.0 as i32,
-            //             pos.1 as i32,
-            //             rect_size,
-            //             rect_size,
-            //             rect_color,
-            //         );
-            //     }
-            // }
             for particle in &self.particles {
-                let mut color = particle.color;
-                color.a = 0xff;
-                let alpha_reduction = 0xff as i32 / particle.prev_positions.len() as i32;
-                let alpha_reduction = if alpha_reduction < 1 {
-                    1
-                } else {
-                    (alpha_reduction as u8).saturating_mul(1)
-                };
-                let mut from_x = particle.pos.0 as i32;
-                let mut from_y = particle.pos.1 as i32;
-                for to_pos in &particle.prev_positions {
-                    let to_x = to_pos.0 as i32;
-                    let to_y = to_pos.1 as i32;
-                    self.pixel_buffer
-                        .draw_line_rgba(from_x, from_y, to_x, to_y, 1, color);
-                    from_x = to_x;
-                    from_y = to_y;
-                    color.a -= alpha_reduction;
-                }
+                particle.render(&mut self.pixel_buffer);
             }
         }
 
         for gravity_well in &self.gravity_wells {
-            let size = GravityWell::SIZE;
-            let x = gravity_well.pos.0 - (size as f64 / 2.0);
-            let y = gravity_well.pos.1 - (size as f64 / 2.0);
-            let mut color = Color::from_u32(0xffffff99);
-            if gravity_well.is_selected {
-                color.tint(Color::from_u32(0x0000ffff));
-            }
-            self.pixel_buffer
-                .draw_rect_rgba(x as i32, y as i32, size, size, color);
+            gravity_well.render(&mut self.pixel_buffer);
         }
     }
 
@@ -245,6 +196,11 @@ impl RustCanvas {
                 return;
             }
         }
+    }
+
+    fn draw_background(&mut self) {
+        self.pixel_buffer
+            .draw_rect_rgb(0, 0, self.width, self.height, Color::from_u32(0x000000ff));
     }
 }
 
@@ -427,8 +383,25 @@ impl TrailParticle {
         todo!();
     }
 
-    fn render(&self, canvas: &RustCanvas) {
-        todo!();
+    fn render(&self, buffer: &mut PixelBuffer) {
+        let mut color = self.color;
+        color.a = 0xff;
+        let alpha_reduction = 0xff as i32 / self.prev_positions.len() as i32;
+        let alpha_reduction = if alpha_reduction < 1 {
+            0x01
+        } else {
+            (alpha_reduction as u8).saturating_mul(1)
+        };
+        let mut from_x = self.pos.0 as i32;
+        let mut from_y = self.pos.1 as i32;
+        for to_pos in &self.prev_positions {
+            let to_x = to_pos.0 as i32;
+            let to_y = to_pos.1 as i32;
+            buffer.draw_line_rgba(from_x, from_y, to_x, to_y, 1, color);
+            from_x = to_x;
+            from_y = to_y;
+            color.a -= alpha_reduction;
+        }
     }
 }
 
@@ -462,6 +435,17 @@ impl GravityWell {
         x += delta_x;
         y += delta_y;
         self.pos = (x, y);
+    }
+
+    fn render(&self, buffer: &mut PixelBuffer) {
+        let size = GravityWell::SIZE;
+        let x = self.pos.0 - (size as f64 / 2.0);
+        let y = self.pos.1 - (size as f64 / 2.0);
+        let mut color = Color::from_u32(0xffffff99);
+        if self.is_selected {
+            color.tint(Color::from_u32(0x0000ffff));
+        }
+        buffer.draw_rect_rgba(x as i32, y as i32, size, size, color);
     }
 }
 
