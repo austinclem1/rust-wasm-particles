@@ -1,13 +1,10 @@
 mod utils;
 use rand::Rng;
-use std::ptr;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::Clamped;
-use web_sys::{console, CanvasRenderingContext2d, ImageData};
+use web_sys::console;
 extern crate libc;
 use std::collections::VecDeque;
 use vecmath;
-use vecmath::Vector2;
 
 #[wasm_bindgen]
 pub fn initialize() {
@@ -36,29 +33,37 @@ pub struct RustCanvas {
     width: u32,
     height: u32,
     pixel_buffer: PixelBuffer,
-    particles: Vec<TrailParticle>,
+    particles: Vec<Particle>,
+    particle_trail_length: usize,
     gravity_wells: Vec<GravityWell>,
+    gravity_well_mass: f64,
+    borders_are_active: bool,
+    should_clear_screen: bool,
     rng: rand::rngs::ThreadRng,
 }
 
 #[wasm_bindgen]
 impl RustCanvas {
     pub fn new(width: u32, height: u32) -> RustCanvas {
-        let particles: Vec<TrailParticle> = Vec::new();
+        let particles: Vec<Particle> = Vec::new();
         let rng = rand::thread_rng();
         RustCanvas {
             width,
             height,
             pixel_buffer: PixelBuffer::new(width, height),
             particles,
+            particle_trail_length: 5,
             gravity_wells: Vec::new(),
+            gravity_well_mass: 200.0,
+            borders_are_active: false,
+            should_clear_screen: true,
             rng,
         }
     }
 
     pub fn initialize_particles(&mut self, num_particles: u32) {
         self.gravity_wells.push(GravityWell {
-            pos: (self.width as f64 / 2.0, self.height as f64 / 2.0),
+            pos: [self.width as f64 / 2.0, self.height as f64 / 2.0],
             mass: 200.0,
             is_selected: false,
         });
@@ -78,61 +83,65 @@ impl RustCanvas {
         let _timer = Timer::new("RustCanvas::update()");
         delta /= 1000.0;
 
-        for gravity_well in &self.gravity_wells {
-            for particle in &mut self.particles {
-                let (px, py) = particle.pos;
-                let (grav_x, grav_y) = gravity_well.pos;
-                let delta_x = grav_x - px;
-                let delta_y = grav_y - py;
-                let distance_from_gravity = vecmath::vec2_len([delta_x, delta_y]);
+        for well in &self.gravity_wells {
+            let mass = self.gravity_well_mass;
+            for p in &mut self.particles {
+                let p_to_well = vecmath::vec2_sub(well.pos, p.pos);
+                let distance_from_gravity = vecmath::vec2_len(p_to_well);
                 let grav_force = {
-                    if distance_from_gravity <= 5.0 {
-                        gravity_well.mass
+                    if distance_from_gravity <= 10.0 {
+                        mass / 5.0
                     } else {
-                        // gravity_well.mass / (distance_from_gravity * 2.0)
-                        gravity_well.mass / distance_from_gravity
+                        // well.mass / (distance_from_gravity * 2.0)
+                        mass / (distance_from_gravity / 2.0)
                     }
                 };
-                let force_dir = vecmath::vec2_normalized([delta_x, delta_y]);
+                let force_dir = vecmath::vec2_normalized(p_to_well);
                 let acc = vecmath::vec2_scale(force_dir, grav_force);
-                particle.vel.0 += acc[0];
-                particle.vel.1 += acc[1];
+                p.vel = vecmath::vec2_add(p.vel, acc);
             }
         }
 
-        for particle in &mut self.particles {
-            if particle.prev_positions.len() >= TrailParticle::MAX_TRAIL_LENGTH {
-                particle.prev_positions.pop_back();
-            }
-            particle.prev_positions.push_front(particle.pos);
-            particle.pos.0 += particle.vel.0 * delta;
-            particle.pos.1 += particle.vel.1 * delta;
+        for p in &mut self.particles {
+            // if p.prev_positions.len() >= Particle::MAX_TRAIL_LENGTH {
+            //     p.prev_positions.pop_back();
+            // }
+            p.prev_positions.truncate(self.particle_trail_length - 1);
+            p.prev_positions.push_front(p.pos);
+            p.pos[0] += p.vel[0] * delta;
+            p.pos[1] += p.vel[1] * delta;
 
-            particle.vel.0 *= 0.999;
-            particle.vel.1 *= 0.999;
-            // if particle.pos.0 < 0.0 || particle.pos.0 >= self.width as f64 {
-            //     particle.vel.0 *= -0.8;
-            //     particle.pos.0 = particle.pos.0.max(0.0);
-            //     particle.pos.0 = particle.pos.0.min((self.width - 1) as f64);
-            // }
-            // if particle.pos.1 < 0.0 || particle.pos.1 >= self.height as f64 {
-            //     particle.vel.1 *= -0.8;
-            //     particle.pos.1 = particle.pos.1.max(0.0);
-            //     particle.pos.1 = particle.pos.1.min((self.height - 1) as f64);
-            // }
+            p.vel = vecmath::vec2_scale(p.vel, 0.999);
+
+            if self.borders_are_active {
+                if p.pos[0] < 0.0 || p.pos[0] >= self.width as f64 {
+                    p.vel[0] *= -1.0;
+                    // p.pos[0] = p.pos[0].max(0.0);
+                    p.pos[0] = f64::max(p.pos[0], 0.0);
+                    // p.pos[0] = p.pos[0].min((self.width - p.size) as f64);
+                    p.pos[0] = f64::min(p.pos[0], (self.width - p.size) as f64);
+                }
+                if p.pos[1] < 0.0 || p.pos[1] >= self.height as f64 {
+                    p.vel[1] *= -1.0;
+                    // p.pos[1] = p.pos[1].max(0.0);
+                    p.pos[1] = f64::max(p.pos[1], 0.0);
+                    // p.pos[1] = p.pos[1].min((self.height - p.size) as f64);
+                    p.pos[1] = f64::min(p.pos[1], (self.height - p.size) as f64);
+                }
+            }
         }
     }
 
     pub fn render(&mut self) {
         let _timer = Timer::new("RustCanvas::render");
-        {
+        if self.should_clear_screen {
             let _timer = Timer::new("draw background");
             self.draw_background();
         }
         {
             let _timer = Timer::new("draw particles");
-            for particle in &self.particles {
-                particle.render(&mut self.pixel_buffer);
+            for p in &mut self.particles {
+                p.render(&mut self.pixel_buffer);
             }
         }
 
@@ -150,12 +159,12 @@ impl RustCanvas {
             a: 0xff,
         };
         self.particles
-            .push(TrailParticle::new(x, y, vel_x, vel_y, 2, color));
+            .push(Particle::new(x, y, vel_x, vel_y, 2, color));
     }
 
     pub fn spawn_gravity_well(&mut self, x: f64, y: f64) {
         self.gravity_wells.push(GravityWell {
-            pos: (x, y),
+            pos: [x, y],
             mass: 200.0,
             is_selected: false,
         });
@@ -196,6 +205,65 @@ impl RustCanvas {
                 return;
             }
         }
+    }
+
+    pub fn clear_particles(&mut self) {
+        self.particles.clear();
+    }
+
+    pub fn set_gravity_well_mass(&mut self, new_mass: f64) {
+        self.gravity_well_mass = new_mass;
+    }
+
+    pub fn get_particle_count(&self) -> usize {
+        self.particles.len()
+    }
+
+    pub fn set_particle_trail_length(&mut self, length: usize) {
+        self.particle_trail_length = length;
+    }
+
+    pub fn set_borders_active(&mut self, new_state: bool) {
+        if new_state == true {
+            // let mut particle_indices_to_delete = Vec::new();
+            // for i in 0..self.particles.len() {
+            //     let p = &self.particles[i];
+            //     if p.pos[0] < 0.0
+            //         || p.pos[0] >= (self.width - p.size) as f64
+            //         || p.pos[1] < 0.0
+            //         || p.pos[1] >= (self.height - p.size) as f64
+            //     {
+            //         particle_indices_to_delete.push(i);
+            //     }
+            // }
+            // for idx in particle_indices_to_delete.iter().rev().copied() {
+            //     self.particles.remove(idx);
+            // }
+            // let width = self.width;
+            // let height = self.height;
+            // self.particles.retain(|p| {
+            //     p.pos[0] >= 0.0
+            //         && p.pos[0] < (width - p.size) as f64
+            //         && p.pos[1] >= 0.0
+            //         && p.pos[1] < (height - p.size) as f64
+            // });
+            for i in (0..self.particles.len()).rev() {
+                let p = &self.particles[i];
+                if p.pos[0] < 0.0
+                    || p.pos[0] >= (self.width - p.size) as f64
+                    || p.pos[1] < 0.0
+                    || p.pos[1] >= (self.height - p.size) as f64
+                {
+                    self.particles.swap_remove(i);
+                }
+            }
+        }
+
+        self.borders_are_active = new_state;
+    }
+
+    pub fn set_should_clear_screen(&mut self, new_state: bool) {
+        self.should_clear_screen = new_state;
     }
 
     fn draw_background(&mut self) {
@@ -325,62 +393,25 @@ impl PixelBuffer {
     }
 }
 
-#[derive(Copy, Clone)]
 pub struct Particle {
-    pos: (f64, f64),
-    vel: (f64, f64),
+    pos: [f64; 2],
+    vel: [f64; 2],
     size: u32,
     color: Color,
+    prev_positions: VecDeque<[f64; 2]>,
 }
 
 impl Particle {
-    pub fn new(
-        pos_x: f64,
-        pos_y: f64,
-        vel_x: f64,
-        vel_y: f64,
-        size: u32,
-        color: Color,
-    ) -> Particle {
-        Particle {
-            pos: (pos_x, pos_y),
-            vel: (vel_x, vel_y),
-            size,
-            color,
-        }
-    }
-}
-
-pub struct TrailParticle {
-    pos: (f64, f64),
-    vel: (f64, f64),
-    size: u32,
-    color: Color,
-    prev_positions: VecDeque<(f64, f64)>,
-}
-
-impl TrailParticle {
     const MAX_TRAIL_LENGTH: usize = 5;
 
-    fn new(
-        pos_x: f64,
-        pos_y: f64,
-        vel_x: f64,
-        vel_y: f64,
-        size: u32,
-        color: Color,
-    ) -> TrailParticle {
-        TrailParticle {
-            pos: (pos_x, pos_y),
-            vel: (vel_x, vel_y),
+    fn new(pos_x: f64, pos_y: f64, vel_x: f64, vel_y: f64, size: u32, color: Color) -> Particle {
+        Particle {
+            pos: [pos_x, pos_y],
+            vel: [vel_x, vel_y],
             size,
             color,
-            prev_positions: VecDeque::with_capacity(TrailParticle::MAX_TRAIL_LENGTH as usize),
+            prev_positions: VecDeque::with_capacity(Particle::MAX_TRAIL_LENGTH as usize),
         }
-    }
-
-    fn update(&mut self, delta: f64) {
-        todo!();
     }
 
     fn render(&self, buffer: &mut PixelBuffer) {
@@ -392,11 +423,11 @@ impl TrailParticle {
         } else {
             (alpha_reduction as u8).saturating_mul(1)
         };
-        let mut from_x = self.pos.0 as i32;
-        let mut from_y = self.pos.1 as i32;
+        let mut from_x = self.pos[0] as i32;
+        let mut from_y = self.pos[1] as i32;
         for to_pos in &self.prev_positions {
-            let to_x = to_pos.0 as i32;
-            let to_y = to_pos.1 as i32;
+            let to_x = to_pos[0] as i32;
+            let to_y = to_pos[1] as i32;
             buffer.draw_line_rgba(from_x, from_y, to_x, to_y, 1, color);
             from_x = to_x;
             from_y = to_y;
@@ -406,7 +437,7 @@ impl TrailParticle {
 }
 
 pub struct GravityWell {
-    pos: (f64, f64),
+    pos: [f64; 2],
     mass: f64,
     is_selected: bool,
 }
@@ -422,25 +453,22 @@ impl GravityWell {
     }
 
     fn get_rect(&self) -> (f64, f64, f64, f64) {
-        let (x, y) = self.pos;
-        let left = x - (GravityWell::SIZE as f64 / 2.0);
-        let top = y - (GravityWell::SIZE as f64 / 2.0);
-        let right = x + (GravityWell::SIZE as f64 / 2.0);
-        let bottom = y + (GravityWell::SIZE as f64 / 2.0);
+        let left = self.pos[0] - (GravityWell::SIZE as f64 / 2.0);
+        let top = self.pos[1] - (GravityWell::SIZE as f64 / 2.0);
+        let right = self.pos[0] + (GravityWell::SIZE as f64 / 2.0);
+        let bottom = self.pos[1] + (GravityWell::SIZE as f64 / 2.0);
         (left, top, right, bottom)
     }
 
     fn move_by(&mut self, delta_x: f64, delta_y: f64) {
-        let (mut x, mut y) = self.pos;
-        x += delta_x;
-        y += delta_y;
-        self.pos = (x, y);
+        self.pos[0] += delta_x;
+        self.pos[1] += delta_y;
     }
 
     fn render(&self, buffer: &mut PixelBuffer) {
         let size = GravityWell::SIZE;
-        let x = self.pos.0 - (size as f64 / 2.0);
-        let y = self.pos.1 - (size as f64 / 2.0);
+        let x = self.pos[0] - (size as f64 / 2.0);
+        let y = self.pos[1] - (size as f64 / 2.0);
         let mut color = Color::from_u32(0xffffff99);
         if self.is_selected {
             color.tint(Color::from_u32(0x0000ffff));
