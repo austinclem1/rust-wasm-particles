@@ -33,6 +33,13 @@ clearParticlesButton.addEventListener("click", (e) => {
   rustCanvas.clear_particles();
 });
 
+let removeSomeParticlesButton = document.getElementById(
+  "remove-some-particles-button"
+);
+removeSomeParticlesButton.addEventListener("click", (e) => {
+  rustCanvas.remove_particles(250);
+});
+
 let bordersActiveCheckbox = document.getElementById("borders-active-checkbox");
 bordersActiveCheckbox.addEventListener("input", (e) => {
   rustCanvas.set_borders_active(bordersActiveCheckbox.checked);
@@ -166,14 +173,26 @@ const frameRateCounter = new (class {
 
     this.fpsElement.textContent = `
 Frames per Second:
-avg of last 100: ${Math.round(mean)}
-min of last 100: ${Math.round(min)}
-max of last 100: ${Math.round(max)}
+avg of last 100: ${Math.round(mean)}\n
+min of last 100: ${Math.round(min)}\n
 `.trim();
   }
 })();
-// let image = new ImageData(pixelData, CANVAS_WIDTH, CANVAS_HEIGHT);
-let image = new ImageData(pixelData, canvas.width, canvas.height);
+
+let spawnParticle = () => {
+  let randPosRange = 8;
+  let randVelRange = 60;
+  let spawnX = mouseX + (Math.random() * randPosRange - randPosRange / 2);
+  let spawnY = mouseY + (Math.random() * randPosRange - randPosRange / 2);
+  let spawnVelX = Math.random() * randVelRange - randVelRange / 2;
+  let spawnVelY = Math.random() * randVelRange - randVelRange / 2;
+  rustCanvas.spawn_particle(spawnX, spawnY, spawnVelX, spawnVelY);
+};
+
+let updateParticleCountLabel = () => {
+  particleCountElement.textContent = `Particles: ${rustCanvas.get_particle_count()}`;
+};
+
 let currentFrameTime = performance.now();
 let timeSinceUpdate = 0.0;
 let timeSinceRender = 0.0;
@@ -184,7 +203,7 @@ const renderLoop = () => {
   let frameDelta = currentFrameTime - lastFrameTime;
   timeSinceUpdate += frameDelta;
   timeSinceRender += frameDelta;
-  particleCountElement.textContent = `Particles: ${rustCanvas.get_particle_count()}`;
+  updateParticleCountLabel();
   updateSimSpeedLabel();
   updateParticleTrailLengthLabel();
   let updatesThisFrame = 0;
@@ -192,15 +211,7 @@ const renderLoop = () => {
     for (let i = 0; i < simTicksPerFrame; i++) {
       if (isSpawningParticles) {
         for (let i = 0; i < particleSpawnRate; i++) {
-          let randPosRange = 8;
-          let randVelRange = 60;
-          let spawnX =
-            mouseX + (Math.random() * randPosRange - randPosRange / 2);
-          let spawnY =
-            mouseY + (Math.random() * randPosRange - randPosRange / 2);
-          let spawnVelX = Math.random() * randVelRange - randVelRange / 2;
-          let spawnVelY = Math.random() * randVelRange - randVelRange / 2;
-          rustCanvas.spawn_particle(spawnX, spawnY, spawnVelX, spawnVelY);
+          spawnParticle();
         }
       }
       rustCanvas.update(16.7);
