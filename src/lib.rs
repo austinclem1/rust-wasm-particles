@@ -33,7 +33,7 @@ pub struct RustCanvas {
     width: u32,
     height: u32,
     pixel_buffer: PixelBuffer,
-    particles: Vec<Particle>,
+    particles: VecDeque<Particle>,
     particle_trail_length: usize,
     gravity_wells: Vec<GravityWell>,
     gravity_well_mass: f64,
@@ -45,7 +45,7 @@ pub struct RustCanvas {
 #[wasm_bindgen]
 impl RustCanvas {
     pub fn new(width: u32, height: u32) -> RustCanvas {
-        let particles: Vec<Particle> = Vec::new();
+        let particles: VecDeque<Particle> = VecDeque::new();
         let rng = rand::thread_rng();
         RustCanvas {
             width,
@@ -159,7 +159,7 @@ impl RustCanvas {
             a: 0xff,
         };
         self.particles
-            .push(Particle::new(x, y, vel_x, vel_y, 2, color));
+            .push_back(Particle::new(x, y, vel_x, vel_y, 2, color));
     }
 
     pub fn spawn_gravity_well(&mut self, x: f64, y: f64) {
@@ -211,6 +211,11 @@ impl RustCanvas {
         self.particles.clear();
     }
 
+    pub fn remove_particles(&mut self, num_to_remove: usize) {
+        let num_to_remove = usize::min(self.particles.len(), num_to_remove);
+        drop(self.particles.drain(0..num_to_remove));
+    }
+
     pub fn set_gravity_well_mass(&mut self, new_mass: f64) {
         self.gravity_well_mass = new_mass;
     }
@@ -223,13 +228,16 @@ impl RustCanvas {
         self.particle_trail_length = length;
     }
 
+    pub fn get_particle_trail_length(&self) -> usize {
+        self.particle_trail_length
+    }
+
     pub fn set_borders_active(&mut self, new_state: bool) {
         if new_state == true {
             // let mut particle_indices_to_delete = Vec::new();
             // for i in 0..self.particles.len() {
             //     let p = &self.particles[i];
             //     if p.pos[0] < 0.0
-            //         || p.pos[0] >= (self.width - p.size) as f64
             //         || p.pos[1] < 0.0
             //         || p.pos[1] >= (self.height - p.size) as f64
             //     {
@@ -254,7 +262,7 @@ impl RustCanvas {
                     || p.pos[1] < 0.0
                     || p.pos[1] >= (self.height - p.size) as f64
                 {
-                    self.particles.swap_remove(i);
+                    self.particles.swap_remove_back(i);
                 }
             }
         }
