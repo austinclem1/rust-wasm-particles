@@ -135,13 +135,17 @@ const rustCanvas = RustCanvas.new(canvas.width, canvas.height);
 rustCanvas.spawn_gravity_well(canvas.width / 2.0, canvas.height / 2.0);
 // rustCanvas.initialize_particles(10);
 
-let pixelDataPtr = rustCanvas.get_pixel_buffer_ptr();
-let pixelData = new Uint8ClampedArray(
-  memory.buffer,
-  pixelDataPtr,
-  // CANVAS_WIDTH * CANVAS_HEIGHT * 4
-  canvas.width * canvas.height * 4
-);
+let renderToCanvas = () => {
+  let pixelDataPtr = rustCanvas.get_pixel_buffer_ptr();
+  let pixelData = new Uint8ClampedArray(
+    memory.buffer,
+    pixelDataPtr,
+    // CANVAS_WIDTH * CANVAS_HEIGHT * 4
+    canvas.width * canvas.height * 4
+  );
+  let image = new ImageData(pixelData, canvas.width, canvas.height);
+  ctx.putImageData(image, 0, 0);
+};
 
 const frameRateCounter = new (class {
   constructor() {
@@ -222,11 +226,8 @@ const renderLoop = () => {
     timeSinceUpdate >= 16.7 &&
     updatesThisFrame <= MAX_UPDATES_PER_FRAME
   );
-  // if (timeSinceRender >= 33.4) {
   rustCanvas.render();
-  ctx.putImageData(image, 0, 0);
-  timeSinceRender = 0.0;
-  // }
+  renderToCanvas();
   requestAnimationFrame(renderLoop);
 };
 requestAnimationFrame(renderLoop);
