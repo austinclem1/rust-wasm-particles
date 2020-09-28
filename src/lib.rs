@@ -89,11 +89,12 @@ impl RustCanvas {
                 let p_to_well = vecmath::vec2_sub(well.pos, p.pos);
                 let distance_from_gravity = vecmath::vec2_len(p_to_well);
                 let grav_force = {
-                    if distance_from_gravity <= 10.0 {
-                        mass / 5.0
+                    if distance_from_gravity <= 30.0 {
+                        // mass / 5.0
+                        mass / 60.0
                     } else {
-                        // well.mass / (distance_from_gravity * 2.0)
-                        mass / (distance_from_gravity / 2.0)
+                        well.mass / (distance_from_gravity * 2.0)
+                        // mass / (distance_from_gravity / 2.0)
                     }
                 };
                 let force_dir = vecmath::vec2_normalized(p_to_well);
@@ -111,7 +112,9 @@ impl RustCanvas {
             p.pos[0] += p.vel[0] * delta;
             p.pos[1] += p.vel[1] * delta;
 
+            // p.vel = vecmath::vec2_scale(p.vel, 0.9999);
             p.vel = vecmath::vec2_scale(p.vel, 0.999);
+            // p.vel = vecmath::vec2_scale(p.vel, 1.001);
 
             if self.borders_are_active {
                 if p.pos[0] < 0.0 || p.pos[0] >= self.width as f64 {
@@ -151,7 +154,7 @@ impl RustCanvas {
     }
 
     pub fn spawn_particle(&mut self, x: f64, y: f64, vel_x: f64, vel_y: f64) {
-        let _timer = Timer::new("RustCanvas::spawn_particle");
+        // let _timer = Timer::new("RustCanvas::spawn_particle");
         let color = Color {
             r: self.rng.gen::<u8>(),
             g: self.rng.gen::<u8>(),
@@ -218,6 +221,10 @@ impl RustCanvas {
 
     pub fn set_gravity_well_mass(&mut self, new_mass: f64) {
         self.gravity_well_mass = new_mass;
+    }
+
+    pub fn get_gravity_well_mass(&self) -> f64 {
+        self.gravity_well_mass
     }
 
     pub fn get_particle_count(&self) -> usize {
