@@ -418,6 +418,7 @@ pub struct Particle {
 
 impl Particle {
     const MAX_TRAIL_LENGTH: usize = 5;
+    const TRAIL_SCALE: f64 = 0.1;
 
     fn new(pos_x: f64, pos_y: f64, vel_x: f64, vel_y: f64, size: u32, color: Color) -> Particle {
         Particle {
@@ -438,16 +439,11 @@ impl Particle {
         } else {
             (alpha_reduction as u8).saturating_mul(1)
         };
-        let mut from_x = self.pos[0] as i32;
-        let mut from_y = self.pos[1] as i32;
-        for to_pos in &self.prev_positions {
-            let to_x = to_pos[0] as i32;
-            let to_y = to_pos[1] as i32;
-            buffer.draw_line_rgba(from_x, from_y, to_x, to_y, 1, color);
-            from_x = to_x;
-            from_y = to_y;
-            color.a -= alpha_reduction;
-        }
+        let from_x = self.pos[0] as i32;
+        let from_y = self.pos[1] as i32;
+        let to_x = (self.pos[0] + (self.vel[0] * Particle::TRAIL_SCALE)) as i32;
+        let to_y = (self.pos[1] + (self.vel[1] * Particle::TRAIL_SCALE)) as i32;
+        buffer.draw_line_rgba(from_x, from_y, to_x, to_y, 1, self.color);
     }
 }
 
