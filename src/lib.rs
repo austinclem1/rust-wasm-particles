@@ -433,12 +433,6 @@ impl Particle {
     fn render(&self, buffer: &mut PixelBuffer) {
         let mut color = self.color;
         color.a = 0xff;
-        let alpha_reduction = 0xff as i32 / self.prev_positions.len() as i32;
-        let alpha_reduction = if alpha_reduction < 1 {
-            0x01
-        } else {
-            (alpha_reduction as u8).saturating_mul(1)
-        };
         let from_x = self.pos[0] as i32;
         let from_y = self.pos[1] as i32;
         let to_x = (self.pos[0] + (self.vel[0] * Particle::TRAIL_SCALE)) as i32;
