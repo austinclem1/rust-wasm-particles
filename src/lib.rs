@@ -1,15 +1,13 @@
 mod utils;
 use rand::Rng;
 use wasm_bindgen::prelude::*;
-use web_sys::console;
+use wasm_bindgen::JsCast;
+use web_sys::{console, WebGlBuffer, WebGlProgram, WebGlRenderingContext, WebGlShader};
 extern crate libc;
+extern crate nalgebra_glm as glm;
+use glm::TMat4;
 use std::collections::VecDeque;
 use vecmath;
-
-#[wasm_bindgen]
-pub fn initialize() {
-    utils::set_panic_hook();
-}
 
 pub struct Timer<'a> {
     name: &'a str,

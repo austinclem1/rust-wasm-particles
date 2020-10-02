@@ -14,12 +14,13 @@ default = ["console_error_panic_hook"]
 
 [dependencies]
 wasm-bindgen = "0.2.67"
-js-sys = "0.3.44"
+js-sys = "0.3.45"
 console_error_panic_hook = { version = "0.1.6", optional = true }
 wee_alloc = { version = "0.4.5", optional = true }
 libc = "0.2.76"
 cgmath = "0.17.0"
 vecmath = "1.0.0"
+nalgebra-glm = "0.8.0"
 
 [dependencies.web-sys]
 version = "0.3.44"
@@ -27,6 +28,15 @@ features = [
     'CanvasRenderingContext2d',
     'console',
     'ImageData',
+    'Document',
+    'Element',
+    'HtmlCanvasElement',
+    'WebGlBuffer',
+    'WebGlRenderingContext',
+    'WebGlProgram',
+    'WebGlShader',
+    'WebGlUniformLocation',
+    'Window',
 ]
 
 [dependencies.rand]
