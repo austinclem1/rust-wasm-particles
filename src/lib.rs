@@ -26,13 +26,67 @@ impl<'a> Drop for Timer<'a> {
     }
 }
 
+pub fn compile_shader(
+    context: &WebGlRenderingContext,
+    shader_type: u32,
+    source: &str,
+) -> Result<WebGlShader, String> {
+    let shader = context
+        .create_shader(shader_type)
+        .ok_or_else(|| String::from("Unable to create shader object"))?;
+    context.shader_source(&shader, source);
+    context.compile_shader(&shader);
+
+    if context
+        .get_shader_parameter(&shader, WebGlRenderingContext::COMPILE_STATUS)
+        .as_bool()
+        .unwrap_or(false)
+    {
+        Ok(shader)
+    } else {
+        Err(context
+            .get_shader_info_log(&shader)
+            .unwrap_or_else(|| String::from("Unknown error creating shader")))
+    }
+}
+
+pub fn link_program(
+    context: &WebGlRenderingContext,
+    vertex_shader: &WebGlShader,
+    fragment_shader: &WebGlShader,
+) -> Result<WebGlProgram, String> {
+    let program = context
+        .create_program()
+        .ok_or_else(|| String::from("Unable to create shader object"))?;
+    context.attach_shader(&program, vertex_shader);
+    context.attach_shader(&program, fragment_shader);
+    context.link_program(&program);
+
+    if context
+        .get_program_parameter(&program, WebGlRenderingContext::LINK_STATUS)
+        .as_bool()
+        .unwrap_or(false)
+    {
+        Ok(program)
+    } else {
+        Err(context
+            .get_program_info_log(&program)
+            .unwrap_or_else(|| String::from("Unknown error creaing program object")))
+    }
+}
+
 #[wasm_bindgen]
 pub struct RustCanvas {
     width: u32,
     height: u32,
+    gl_context: Option<WebGlRenderingContext>,
+    projection_mat: TMat4<f32>,
+    shader_program: Option<WebGlProgram>,
+    vbo: Option<WebGlBuffer>,
     pixel_buffer: PixelBuffer,
     particles: VecDeque<Particle>,
     particle_trail_length: usize,
+    vertex_buffer: Vec<f32>,
     gravity_wells: Vec<GravityWell>,
     gravity_well_mass: f64,
     borders_are_active: bool,
@@ -42,21 +96,97 @@ pub struct RustCanvas {
 
 #[wasm_bindgen]
 impl RustCanvas {
-    pub fn new(width: u32, height: u32) -> RustCanvas {
+    pub fn new() -> RustCanvas {
+        utils::set_panic_hook();
         let particles: VecDeque<Particle> = VecDeque::new();
+        let vertex_buffer: Vec<f32> = Vec::new();
         let rng = rand::thread_rng();
-        RustCanvas {
-            width,
-            height,
-            pixel_buffer: PixelBuffer::new(width, height),
+        let mut rust_canvas = RustCanvas {
+            width: 0,
+            height: 0,
+            gl_context: None,
+            projection_mat: glm::zero(),
+            shader_program: None,
+            vbo: None,
+            pixel_buffer: PixelBuffer::new(0, 0),
             particles,
             particle_trail_length: 5,
+            vertex_buffer,
             gravity_wells: Vec::new(),
             gravity_well_mass: 200.0,
             borders_are_active: false,
             should_clear_screen: true,
             rng,
-        }
+        };
+        rust_canvas.initialize().unwrap();
+        rust_canvas
+    }
+
+    pub fn initialize(&mut self) -> Result<(), JsValue> {
+        let document = web_sys::window().unwrap().document().unwrap();
+        let canvas = document.get_element_by_id("canvas").unwrap();
+        let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
+
+        self.width = canvas.width();
+        self.height = canvas.height();
+
+        self.projection_mat =
+            nalgebra_glm::ortho(0.0, self.width as f32, self.height as f32, 0.0, -1.0, 1.0);
+
+        let context = canvas
+            .get_context("webgl")?
+            .unwrap()
+            .dyn_into::<WebGlRenderingContext>()?;
+
+        let vertex_shader = compile_shader(
+            &context,
+            WebGlRenderingContext::VERTEX_SHADER,
+            r#"
+            attribute vec2 a_Position;
+            attribute vec4 a_Color;
+
+            // uniform float u_TrailScale;
+            uniform mat4 u_Proj;
+
+            varying vec4 v_Color;
+
+            void main() {
+                gl_Position = u_Proj * vec4(a_Position, 0.0, 1.0);
+                v_Color = a_Color;
+            }
+        "#,
+        )?;
+        let fragment_shader = compile_shader(
+            &context,
+            WebGlRenderingContext::FRAGMENT_SHADER,
+            r#"
+            precision mediump float;
+
+            varying vec4 v_Color;
+
+            void main() {
+                // gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+                gl_FragColor = v_Color;
+            }
+        "#,
+        )?;
+        let program = link_program(&context, &vertex_shader, &fragment_shader)?;
+        context.use_program(Some(&program));
+        context.enable(WebGlRenderingContext::BLEND);
+        context.blend_func(
+            WebGlRenderingContext::SRC_ALPHA,
+            WebGlRenderingContext::ONE_MINUS_SRC_ALPHA,
+        );
+        let vbo = context
+            .create_buffer()
+            .ok_or("failed to create buffer")
+            .unwrap();
+
+        self.gl_context = Some(context);
+        self.shader_program = Some(program);
+        self.vbo = Some(vbo);
+
+        Ok(())
     }
 
     pub fn initialize_particles(&mut self, num_particles: u32) {
@@ -135,20 +265,78 @@ impl RustCanvas {
 
     pub fn render(&mut self) {
         let _timer = Timer::new("RustCanvas::render");
-        if self.should_clear_screen {
-            let _timer = Timer::new("draw background");
-            self.draw_background();
+
+        let gl_context = self.gl_context.as_ref().unwrap();
+
+        gl_context.clear_color(0.0, 0.0, 0.0, 1.0);
+        gl_context.clear(WebGlRenderingContext::COLOR_BUFFER_BIT);
+
+        gl_context.bind_buffer(WebGlRenderingContext::ARRAY_BUFFER, self.vbo.as_ref());
+
+        for (i, p) in self.particles.iter().enumerate() {
+            let idx = i * 12;
+            let from_x = p.pos[0];
+            let from_y = p.pos[1];
+            let to_x = from_x - (p.vel[0] * 0.1);
+            let to_y = from_y - (p.vel[1] * 0.1);
+            self.vertex_buffer[idx + 0] = from_x as f32;
+            self.vertex_buffer[idx + 1] = from_y as f32;
+            self.vertex_buffer[idx + 6] = to_x as f32;
+            self.vertex_buffer[idx + 7] = to_y as f32;
         }
-        {
-            let _timer = Timer::new("draw particles");
-            for p in &mut self.particles {
-                p.render(&mut self.pixel_buffer);
-            }
+        unsafe {
+            let vertex_array = js_sys::Float32Array::view(&self.vertex_buffer);
+            gl_context.buffer_data_with_array_buffer_view(
+                WebGlRenderingContext::ARRAY_BUFFER,
+                &vertex_array,
+                WebGlRenderingContext::DYNAMIC_DRAW,
+            );
         }
 
-        for gravity_well in &self.gravity_wells {
-            gravity_well.render(&mut self.pixel_buffer);
+        let shader_program = self.shader_program.as_ref().unwrap();
+
+        let u_proj_location = gl_context.get_uniform_location(&shader_program, "u_Proj");
+        gl_context.uniform_matrix4fv_with_f32_array(
+            u_proj_location.as_ref(),
+            false,
+            self.projection_mat.as_slice(),
+        );
+
+        let position_attrib_location =
+            gl_context.get_attrib_location(&shader_program, "a_Position"); // as u32;
+        let color_attrib_location = gl_context.get_attrib_location(&shader_program, "a_Color"); // as u32;
+        if position_attrib_location < 0 || color_attrib_location < 0 {
+            console::log_1(&"Invalid attribute location".into());
         }
+        let stride = 6 * std::mem::size_of::<f32>() as i32;
+        gl_context.vertex_attrib_pointer_with_i32(
+            position_attrib_location as u32,
+            2,
+            WebGlRenderingContext::FLOAT,
+            false,
+            stride,
+            0,
+        );
+        gl_context.enable_vertex_attrib_array(position_attrib_location as u32);
+        gl_context.vertex_attrib_pointer_with_i32(
+            color_attrib_location as u32,
+            4,
+            WebGlRenderingContext::FLOAT,
+            false,
+            stride,
+            2 * std::mem::size_of::<f32>() as i32,
+        );
+        gl_context.enable_vertex_attrib_array(color_attrib_location as u32);
+
+        gl_context.draw_arrays(
+            WebGlRenderingContext::LINES,
+            0,
+            self.particles.len() as i32 * 2,
+        );
+
+        // for gravity_well in &self.gravity_wells {
+        //     gravity_well.render(&mut self.pixel_buffer);
+        // }
     }
 
     pub fn spawn_particle(&mut self, x: f64, y: f64, vel_x: f64, vel_y: f64) {
@@ -160,7 +348,25 @@ impl RustCanvas {
             a: 0xff,
         };
         self.particles
-            .push_back(Particle::new(x, y, vel_x, vel_y, 2, color));
+            .push_back(Particle::new(x, y, vel_x, vel_y, color));
+        let from_x = x;
+        let from_y = y;
+        let to_x = from_x - (vel_x * 0.1);
+        let to_y = from_y - (vel_y * 0.1);
+        self.vertex_buffer.append(&mut vec![
+            from_x as f32,
+            from_y as f32,
+            color.r as f32 / 255.0,
+            color.g as f32 / 255.0,
+            color.b as f32 / 255.0,
+            1.0,
+            to_x as f32,
+            to_y as f32,
+            color.r as f32 / 255.0,
+            color.g as f32 / 255.0,
+            color.b as f32 / 255.0,
+            0.0,
+        ]);
     }
 
     pub fn spawn_gravity_well(&mut self, x: f64, y: f64) {
