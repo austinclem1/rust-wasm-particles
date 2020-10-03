@@ -83,7 +83,6 @@ pub struct RustCanvas {
     projection_mat: TMat4<f32>,
     shader_program: Option<WebGlProgram>,
     vbo: Option<WebGlBuffer>,
-    pixel_buffer: PixelBuffer,
     particles: VecDeque<Particle>,
     particle_trail_length: usize,
     vertex_buffer: Vec<f32>,
@@ -108,7 +107,6 @@ impl RustCanvas {
             projection_mat: glm::zero(),
             shader_program: None,
             vbo: None,
-            pixel_buffer: PixelBuffer::new(0, 0),
             particles,
             particle_trail_length: 5,
             vertex_buffer,
@@ -378,10 +376,6 @@ impl RustCanvas {
         });
     }
 
-    pub fn get_pixel_buffer_ptr(&self) -> *const u32 {
-        self.pixel_buffer.get_ptr()
-    }
-
     pub fn try_selecting(&mut self, x: i32, y: i32) -> bool {
         for well in &mut self.gravity_wells {
             if well.is_point_inside(x, y) {
@@ -485,132 +479,6 @@ impl RustCanvas {
     pub fn set_should_clear_screen(&mut self, new_state: bool) {
         self.should_clear_screen = new_state;
     }
-
-    fn draw_background(&mut self) {
-        self.pixel_buffer
-            .draw_rect_rgb(0, 0, self.width, self.height, Color::from_u32(0x000000ff));
-    }
-}
-
-pub struct PixelBuffer {
-    width: u32,
-    height: u32,
-    data: Vec<u32>,
-}
-
-impl PixelBuffer {
-    pub fn new(width: u32, height: u32) -> PixelBuffer {
-        PixelBuffer {
-            width,
-            height,
-            data: vec![0x00000000; (width * height) as usize],
-        }
-    }
-
-    fn get_pixel_index(&self, x: i32, y: i32) -> Option<usize> {
-        if x >= 0 && x < self.width as i32 && y >= 0 && y < self.height as i32 {
-            Some((y * self.width as i32 + x) as usize)
-        } else {
-            None
-        }
-    }
-
-    fn get_pixel_color(&self, x: i32, y: i32) -> Option<Color> {
-        if let Some(idx) = self.get_pixel_index(x, y) {
-            let pixel_val = self.data[idx];
-            Some(Color {
-                r: (pixel_val & 0xff) as u8,
-                g: ((pixel_val >> 8) & 0xff) as u8,
-                b: ((pixel_val >> 16) & 0xff) as u8,
-                a: ((pixel_val >> 24) & 0xff) as u8,
-            })
-        } else {
-            None
-        }
-    }
-
-    fn set_pixel_rgba(&mut self, x: i32, y: i32, color: Color) {
-        if let Some(idx) = self.get_pixel_index(x, y) {
-            let old_pixel_color = self.get_pixel_color(x, y).unwrap();
-            let blend_ratio = color.a as f64 / 255.0;
-            let mut blended_color = Color::from_u32(0x000000ff);
-            blended_color.r = (color.r as f64 * blend_ratio
-                + (old_pixel_color.r as f64 * (1.0 - blend_ratio)))
-                as u8;
-            blended_color.g = (color.g as f64 * blend_ratio
-                + (old_pixel_color.g as f64 * (1.0 - blend_ratio)))
-                as u8;
-            blended_color.b = (color.b as f64 * blend_ratio
-                + (old_pixel_color.b as f64 * (1.0 - blend_ratio)))
-                as u8;
-            let blended_pixel_val: u32 = ((0xff & 0xff) as u32) << 24
-                | ((blended_color.b & 0xff) as u32) << 16
-                | ((blended_color.g & 0xff) as u32) << 8
-                | ((blended_color.r & 0xff) as u32);
-            self.data[idx] = blended_pixel_val;
-        }
-    }
-
-    fn set_pixel_rgb(&mut self, x: i32, y: i32, color: Color) {
-        if let Some(idx) = self.get_pixel_index(x, y) {
-            let pixel_val: u32 = ((0xff & 0xff) as u32) << 24
-                | ((color.b & 0xff) as u32) << 16
-                | ((color.g & 0xff) as u32) << 8
-                | ((color.r & 0xff) as u32);
-            self.data[idx] = pixel_val;
-        }
-    }
-
-    fn draw_line_rgba(
-        &mut self,
-        mut x0: i32,
-        mut y0: i32,
-        x1: i32,
-        y1: i32,
-        thickness: u32,
-        color: Color,
-    ) {
-        let delta_x = (x1 - x0).abs();
-        let sx = if x0 < x1 { 1 } else { -1 };
-        let delta_y = (y1 - y0).abs() * -1;
-        let sy = if y0 < y1 { 1 } else { -1 };
-        let mut err = delta_x + delta_y;
-        loop {
-            self.set_pixel_rgba(x0, y0, color);
-            if x0 == x1 && y0 == y1 {
-                break;
-            }
-            let e2 = 2 * err;
-            if e2 >= delta_y {
-                err += delta_y;
-                x0 += sx;
-            }
-            if e2 <= delta_x {
-                err += delta_x;
-                y0 += sy;
-            }
-        }
-    }
-
-    fn draw_rect_rgba(&mut self, x: i32, y: i32, width: u32, height: u32, color: Color) {
-        for pixel_y in y..y + height as i32 {
-            for pixel_x in x..x + width as i32 {
-                self.set_pixel_rgba(pixel_x, pixel_y, color);
-            }
-        }
-    }
-
-    fn draw_rect_rgb(&mut self, x: i32, y: i32, width: u32, height: u32, color: Color) {
-        for pixel_y in y..y + height as i32 {
-            for pixel_x in x..x + width as i32 {
-                self.set_pixel_rgb(pixel_x, pixel_y, color);
-            }
-        }
-    }
-
-    fn get_ptr(&self) -> *const u32 {
-        self.data.as_ptr()
-    }
 }
 
 pub struct Particle {
@@ -631,16 +499,6 @@ impl Particle {
             color,
             prev_positions: VecDeque::with_capacity(Particle::MAX_TRAIL_LENGTH as usize),
         }
-    }
-
-    fn render(&self, buffer: &mut PixelBuffer) {
-        let mut color = self.color;
-        color.a = 0xff;
-        let from_x = self.pos[0] as i32;
-        let from_y = self.pos[1] as i32;
-        let to_x = (self.pos[0] + (self.vel[0] * Particle::TRAIL_SCALE)) as i32;
-        let to_y = (self.pos[1] + (self.vel[1] * Particle::TRAIL_SCALE)) as i32;
-        buffer.draw_line_rgba(from_x, from_y, to_x, to_y, 1, self.color);
     }
 }
 
@@ -671,17 +529,6 @@ impl GravityWell {
     fn move_by(&mut self, delta_x: f64, delta_y: f64) {
         self.pos[0] += delta_x;
         self.pos[1] += delta_y;
-    }
-
-    fn render(&self, buffer: &mut PixelBuffer) {
-        let size = GravityWell::SIZE;
-        let x = self.pos[0] - (size as f64 / 2.0);
-        let y = self.pos[1] - (size as f64 / 2.0);
-        let mut color = Color::from_u32(0xffffff99);
-        if self.is_selected {
-            color.tint(Color::from_u32(0x0000ffff));
-        }
-        buffer.draw_rect_rgba(x as i32, y as i32, size, size, color);
     }
 }
 
