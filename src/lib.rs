@@ -196,7 +196,8 @@ impl RustCanvas {
             is_selected: false,
         });
         self.particles.reserve(num_particles as usize);
-        let min_vel = 20.0;
+        self.vertex_buffer.reserve(num_particles as usize * 12);
+        let min_vel = -80.0;
         let max_vel = 80.0;
         for _ in 0..num_particles {
             let pos_x = self.rng.gen::<f64>() * self.width as f64;
@@ -250,14 +251,14 @@ impl RustCanvas {
                     // p.pos[0] = p.pos[0].max(0.0);
                     p.pos[0] = f64::max(p.pos[0], 0.0);
                     // p.pos[0] = p.pos[0].min((self.width - p.size) as f64);
-                    p.pos[0] = f64::min(p.pos[0], (self.width - p.size) as f64);
+                    p.pos[0] = f64::min(p.pos[0], (self.width - 1) as f64);
                 }
                 if p.pos[1] < 0.0 || p.pos[1] >= self.height as f64 {
                     p.vel[1] *= -1.0;
                     // p.pos[1] = p.pos[1].max(0.0);
                     p.pos[1] = f64::max(p.pos[1], 0.0);
                     // p.pos[1] = p.pos[1].min((self.height - p.size) as f64);
-                    p.pos[1] = f64::min(p.pos[1], (self.height - p.size) as f64);
+                    p.pos[1] = f64::min(p.pos[1], (self.height - 1) as f64);
                 }
             }
         }
@@ -469,9 +470,9 @@ impl RustCanvas {
             for i in (0..self.particles.len()).rev() {
                 let p = &self.particles[i];
                 if p.pos[0] < 0.0
-                    || p.pos[0] >= (self.width - p.size) as f64
+                    || p.pos[0] >= (self.width - 1) as f64
                     || p.pos[1] < 0.0
-                    || p.pos[1] >= (self.height - p.size) as f64
+                    || p.pos[1] >= (self.height - 1) as f64
                 {
                     self.particles.swap_remove_back(i);
                 }
@@ -615,7 +616,6 @@ impl PixelBuffer {
 pub struct Particle {
     pos: [f64; 2],
     vel: [f64; 2],
-    size: u32,
     color: Color,
     prev_positions: VecDeque<[f64; 2]>,
 }
@@ -624,11 +624,10 @@ impl Particle {
     const MAX_TRAIL_LENGTH: usize = 5;
     const TRAIL_SCALE: f64 = 0.1;
 
-    fn new(pos_x: f64, pos_y: f64, vel_x: f64, vel_y: f64, size: u32, color: Color) -> Particle {
+    fn new(pos_x: f64, pos_y: f64, vel_x: f64, vel_y: f64, color: Color) -> Particle {
         Particle {
             pos: [pos_x, pos_y],
             vel: [vel_x, vel_y],
-            size,
             color,
             prev_positions: VecDeque::with_capacity(Particle::MAX_TRAIL_LENGTH as usize),
         }
