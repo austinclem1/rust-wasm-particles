@@ -79,10 +79,7 @@ pub fn link_program(
 pub struct RustCanvas {
     width: u32,
     height: u32,
-    gl_context: Option<WebGlRenderingContext>,
-    projection_mat: TMat4<f32>,
-    shader_program: Option<WebGlProgram>,
-    vbo: Option<WebGlBuffer>,
+    renderer: Option<Renderer>,
     particles: VecDeque<Particle>,
     particle_trail_length: usize,
     vertex_buffer: Vec<f32>,
@@ -103,10 +100,7 @@ impl RustCanvas {
         let mut rust_canvas = RustCanvas {
             width: 0,
             height: 0,
-            gl_context: None,
-            projection_mat: glm::zero(),
-            shader_program: None,
-            vbo: None,
+            renderer: None,
             particles,
             particle_trail_length: 5,
             vertex_buffer,
@@ -128,61 +122,7 @@ impl RustCanvas {
         self.width = canvas.width();
         self.height = canvas.height();
 
-        self.projection_mat =
-            nalgebra_glm::ortho(0.0, self.width as f32, self.height as f32, 0.0, -1.0, 1.0);
-
-        let context = canvas
-            .get_context("webgl")?
-            .unwrap()
-            .dyn_into::<WebGlRenderingContext>()?;
-
-        let vertex_shader = compile_shader(
-            &context,
-            WebGlRenderingContext::VERTEX_SHADER,
-            r#"
-            attribute vec2 a_Position;
-            attribute vec4 a_Color;
-
-            // uniform float u_TrailScale;
-            uniform mat4 u_Proj;
-
-            varying vec4 v_Color;
-
-            void main() {
-                gl_Position = u_Proj * vec4(a_Position, 0.0, 1.0);
-                v_Color = a_Color;
-            }
-        "#,
-        )?;
-        let fragment_shader = compile_shader(
-            &context,
-            WebGlRenderingContext::FRAGMENT_SHADER,
-            r#"
-            precision mediump float;
-
-            varying vec4 v_Color;
-
-            void main() {
-                // gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
-                gl_FragColor = v_Color;
-            }
-        "#,
-        )?;
-        let program = link_program(&context, &vertex_shader, &fragment_shader)?;
-        context.use_program(Some(&program));
-        context.enable(WebGlRenderingContext::BLEND);
-        context.blend_func(
-            WebGlRenderingContext::SRC_ALPHA,
-            WebGlRenderingContext::ONE_MINUS_SRC_ALPHA,
-        );
-        let vbo = context
-            .create_buffer()
-            .ok_or("failed to create buffer")
-            .unwrap();
-
-        self.gl_context = Some(context);
-        self.shader_program = Some(program);
-        self.vbo = Some(vbo);
+        self.renderer = Some(Renderer::new(&canvas));
 
         Ok(())
     }
@@ -265,77 +205,84 @@ impl RustCanvas {
     pub fn render(&mut self) {
         let _timer = Timer::new("RustCanvas::render");
 
-        let gl_context = self.gl_context.as_ref().unwrap();
+        if let Some(renderer) = &self.renderer {
+            let gl_context = &renderer.context;
+            let vbo = &renderer.vbo;
+            let particle_shader = &renderer.particle_shader;
+            let projection_mat = &renderer.projection_mat;
 
-        gl_context.clear_color(0.0, 0.0, 0.0, 1.0);
-        gl_context.clear(WebGlRenderingContext::COLOR_BUFFER_BIT);
+            gl_context.clear_color(0.0, 0.0, 0.0, 1.0);
+            gl_context.clear(WebGlRenderingContext::COLOR_BUFFER_BIT);
 
-        gl_context.bind_buffer(WebGlRenderingContext::ARRAY_BUFFER, self.vbo.as_ref());
+            gl_context.use_program(Some(particle_shader));
+            gl_context.bind_buffer(WebGlRenderingContext::ARRAY_BUFFER, Some(vbo));
 
-        for (i, p) in self.particles.iter().enumerate() {
-            let idx = i * 12;
-            let from_x = p.pos[0];
-            let from_y = p.pos[1];
-            let to_x = from_x - (p.vel[0] * 0.1);
-            let to_y = from_y - (p.vel[1] * 0.1);
-            self.vertex_buffer[idx + 0] = from_x as f32;
-            self.vertex_buffer[idx + 1] = from_y as f32;
-            self.vertex_buffer[idx + 6] = to_x as f32;
-            self.vertex_buffer[idx + 7] = to_y as f32;
-        }
-        unsafe {
-            let vertex_array = js_sys::Float32Array::view(&self.vertex_buffer);
-            gl_context.buffer_data_with_array_buffer_view(
-                WebGlRenderingContext::ARRAY_BUFFER,
-                &vertex_array,
-                WebGlRenderingContext::DYNAMIC_DRAW,
+            for (i, p) in self.particles.iter().enumerate() {
+                let idx = i * 12;
+                let from_x = p.pos[0];
+                let from_y = p.pos[1];
+                let to_x = from_x - (p.vel[0] * 0.1);
+                let to_y = from_y - (p.vel[1] * 0.1);
+                self.vertex_buffer[idx + 0] = from_x as f32;
+                self.vertex_buffer[idx + 1] = from_y as f32;
+                self.vertex_buffer[idx + 6] = to_x as f32;
+                self.vertex_buffer[idx + 7] = to_y as f32;
+            }
+            unsafe {
+                let vertex_array = js_sys::Float32Array::view(&self.vertex_buffer);
+                gl_context.buffer_data_with_array_buffer_view(
+                    WebGlRenderingContext::ARRAY_BUFFER,
+                    &vertex_array,
+                    WebGlRenderingContext::DYNAMIC_DRAW,
+                );
+            }
+
+            let u_proj_location = gl_context.get_uniform_location(particle_shader, "u_Proj");
+            gl_context.uniform_matrix4fv_with_f32_array(
+                u_proj_location.as_ref(),
+                false,
+                projection_mat.as_slice(),
             );
-        }
 
-        let shader_program = self.shader_program.as_ref().unwrap();
+            let position_attrib_location =
+                gl_context.get_attrib_location(particle_shader, "a_Position"); // as u32;
+            let color_attrib_location = gl_context.get_attrib_location(particle_shader, "a_Color"); // as u32;
+            if position_attrib_location < 0 || color_attrib_location < 0 {
+                console::log_1(&"Invalid attribute location".into());
+            }
+            let stride = 6 * std::mem::size_of::<f32>() as i32;
+            gl_context.vertex_attrib_pointer_with_i32(
+                position_attrib_location as u32,
+                2,
+                WebGlRenderingContext::FLOAT,
+                false,
+                stride,
+                0,
+            );
+            gl_context.enable_vertex_attrib_array(position_attrib_location as u32);
+            let color_attrib_offset = 2 * std::mem::size_of::<f32>() as i32;
+            gl_context.vertex_attrib_pointer_with_i32(
+                color_attrib_location as u32,
+                4,
+                WebGlRenderingContext::FLOAT,
+                false,
+                stride,
+                color_attrib_offset,
+            );
+            gl_context.enable_vertex_attrib_array(color_attrib_location as u32);
 
-        let u_proj_location = gl_context.get_uniform_location(&shader_program, "u_Proj");
-        gl_context.uniform_matrix4fv_with_f32_array(
-            u_proj_location.as_ref(),
-            false,
-            self.projection_mat.as_slice(),
-        );
-
-        let position_attrib_location =
-            gl_context.get_attrib_location(&shader_program, "a_Position"); // as u32;
-        let color_attrib_location = gl_context.get_attrib_location(&shader_program, "a_Color"); // as u32;
-        if position_attrib_location < 0 || color_attrib_location < 0 {
-            console::log_1(&"Invalid attribute location".into());
-        }
-        let stride = 6 * std::mem::size_of::<f32>() as i32;
-        gl_context.vertex_attrib_pointer_with_i32(
-            position_attrib_location as u32,
-            2,
-            WebGlRenderingContext::FLOAT,
-            false,
-            stride,
-            0,
-        );
-        gl_context.enable_vertex_attrib_array(position_attrib_location as u32);
-        gl_context.vertex_attrib_pointer_with_i32(
-            color_attrib_location as u32,
-            4,
-            WebGlRenderingContext::FLOAT,
-            false,
-            stride,
-            2 * std::mem::size_of::<f32>() as i32,
-        );
-        gl_context.enable_vertex_attrib_array(color_attrib_location as u32);
-
-        gl_context.draw_arrays(
-            WebGlRenderingContext::LINES,
-            0,
-            self.particles.len() as i32 * 2,
-        );
+            gl_context.draw_arrays(
+                WebGlRenderingContext::LINES,
+                0,
+                self.particles.len() as i32 * 2,
+            );
 
         // for gravity_well in &self.gravity_wells {
         //     gravity_well.render(&mut self.pixel_buffer);
         // }
+        } else {
+            console::log_1(&"error, no renderer".into());
+        }
     }
 
     pub fn spawn_particle(&mut self, x: f64, y: f64, vel_x: f64, vel_y: f64) {
@@ -478,6 +425,84 @@ impl RustCanvas {
 
     pub fn set_should_clear_screen(&mut self, new_state: bool) {
         self.should_clear_screen = new_state;
+    }
+}
+
+struct Renderer {
+    context: WebGlRenderingContext,
+    particle_shader: WebGlProgram,
+    projection_mat: TMat4<f32>,
+    vbo: WebGlBuffer,
+}
+
+impl Renderer {
+    fn new(canvas: &web_sys::HtmlCanvasElement) -> Self {
+        let context = canvas
+            .get_context("webgl")
+            .unwrap()
+            .unwrap()
+            .dyn_into::<WebGlRenderingContext>()
+            .unwrap();
+        let vertex_shader = compile_shader(
+            &context,
+            WebGlRenderingContext::VERTEX_SHADER,
+            r#"
+            attribute vec2 a_Position;
+            attribute vec4 a_Color;
+
+            // uniform float u_TrailScale;
+            uniform mat4 u_Proj;
+
+            varying vec4 v_Color;
+
+            void main() {
+                gl_Position = u_Proj * vec4(a_Position, 0.0, 1.0);
+                v_Color = a_Color;
+            }
+        "#,
+        )
+        .unwrap();
+        let fragment_shader = compile_shader(
+            &context,
+            WebGlRenderingContext::FRAGMENT_SHADER,
+            r#"
+            precision mediump float;
+
+            varying vec4 v_Color;
+
+            void main() {
+                // gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+                gl_FragColor = v_Color;
+            }
+        "#,
+        )
+        .unwrap();
+        let particle_shader = link_program(&context, &vertex_shader, &fragment_shader).unwrap();
+        context.enable(WebGlRenderingContext::BLEND);
+        context.blend_func(
+            WebGlRenderingContext::SRC_ALPHA,
+            WebGlRenderingContext::ONE_MINUS_SRC_ALPHA,
+        );
+        let vbo = context
+            .create_buffer()
+            .ok_or("failed to create buffer")
+            .unwrap();
+
+        let projection_mat = nalgebra_glm::ortho(
+            0.0,
+            canvas.width() as f32,
+            canvas.height() as f32,
+            0.0,
+            -1.0,
+            1.0,
+        );
+
+        Renderer {
+            context,
+            particle_shader,
+            projection_mat,
+            vbo,
+        }
     }
 }
 
