@@ -9,7 +9,7 @@ use glm::TMat4;
 use std::collections::VecDeque;
 use vecmath;
 
-pub struct Timer<'a> {
+struct Timer<'a> {
     name: &'a str,
 }
 
@@ -26,7 +26,7 @@ impl<'a> Drop for Timer<'a> {
     }
 }
 
-pub fn compile_shader(
+fn compile_shader(
     context: &WebGlRenderingContext,
     shader_type: u32,
     source: &str,
@@ -50,7 +50,7 @@ pub fn compile_shader(
     }
 }
 
-pub fn link_program(
+fn link_program(
     context: &WebGlRenderingContext,
     vertex_shader: &WebGlShader,
     fragment_shader: &WebGlShader,
@@ -114,7 +114,7 @@ impl RustCanvas {
         rust_canvas
     }
 
-    pub fn initialize(&mut self) -> Result<(), JsValue> {
+    fn initialize(&mut self) -> Result<(), JsValue> {
         let document = web_sys::window().unwrap().document().unwrap();
         let canvas = document.get_element_by_id("canvas").unwrap();
         let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
@@ -377,12 +377,12 @@ impl RustCanvas {
         self.particles.len()
     }
 
-    pub fn set_particle_trail_length(&mut self, length: usize) {
-        self.particle_trail_length = length;
+    pub fn set_particle_trail_length(&mut self, scale: f64) {
+        self.particle_trail_scale = scale;
     }
 
-    pub fn get_particle_trail_length(&self) -> usize {
-        self.particle_trail_length
+    pub fn get_particle_trail_scale(&self) -> f64 {
+        self.particle_trail_scale
     }
 
     pub fn set_borders_active(&mut self, new_state: bool) {
@@ -506,7 +506,7 @@ impl Renderer {
     }
 }
 
-pub struct Particle {
+struct Particle {
     pos: [f64; 2],
     vel: [f64; 2],
     color: Color,
@@ -527,7 +527,7 @@ impl Particle {
     }
 }
 
-pub struct GravityWell {
+struct GravityWell {
     pos: [f64; 2],
     mass: f64,
     is_selected: bool,
@@ -558,7 +558,7 @@ impl GravityWell {
 }
 
 #[derive(Copy, Clone)]
-pub struct Color {
+struct Color {
     r: u8,
     g: u8,
     b: u8,
