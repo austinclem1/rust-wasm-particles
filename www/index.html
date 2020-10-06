@@ -9,37 +9,45 @@
         background-color: #111111;
         color: azure;
       }
+
+      .box {
+        display: flex;
+      }
     </style>
   </head>
   <body>
-    <canvas id="canvas" width="640" height="480"></canvas>
-    <div>
-      <input type="range" id="gravity-well-mass" min="1" max="1000" />
-      <label for="gravity-well-mass">Gravity Well Mass</label>
-    </div>
-    <div id="fps"></div>
-    <div id="particle-count"></div>
-    <div><button id="clear-particles-button">Clear Particles</button></div>
-    <div>
-      <input id="borders-active-checkbox" type="checkbox" />
-      <label for="borders-active-checkbox">Solid Borders</label>
-    </div>
-    <div>
-      <input id="clear-screen-checkbox" type="checkbox" checked="true" />
-      <label for="clear-screen-checkbox">Clear Screen Each Frame</label>
-    </div>
-    <div>
-      <button id="sim-speed-down">-</button>
-      <label id="sim-speed-label"></label>
-      <button id="sim-speed-up">+</button>
-    </div>
-    <div>
-      <button id="particle-trail-length-down">-</button>
-      <label id="particle-trail-length-label"></label>
-      <button id="particle-trail-length-up">+</button>
-    </div>
-    <div>
-      <button id="remove-some-particles-button">Remove 250 Particles</button>
+    <div class="box" style="flex-flow: row wrap">
+      <canvas id="canvas" width="640" height="480"></canvas>
+      <div class="box" style="flex-flow: column wrap; justify-content: center;">
+        <div>
+          <input type="range" id="gravity-well-mass" min="1" max="1000" />
+          <label for="gravity-well-mass">Gravity Well Mass</label>
+        </div>
+        <div id="fps"></div>
+        <div id="particle-count"></div>
+        <div><button id="clear-particles-button">Clear Particles</button></div>
+        <div>
+          <input id="borders-active-checkbox" type="checkbox" />
+          <label for="borders-active-checkbox">Solid Borders</label>
+        </div>
+        <div>
+          <input id="clear-screen-checkbox" type="checkbox" checked="true" />
+          <label for="clear-screen-checkbox">Clear Screen Each Frame</label>
+        </div>
+        <div>
+          <button id="sim-speed-down">-</button>
+          <label id="sim-speed-label"></label>
+          <button id="sim-speed-up">+</button>
+        </div>
+        <div>
+          <button id="particle-trail-length-down">-</button>
+          <label id="particle-trail-length-label"></label>
+          <button id="particle-trail-length-up">+</button>
+        </div>
+        <div>
+          <button id="remove-some-particles-button">Remove 250 Particles</button>
+        </div>
+      </div>
     </div>
     <noscript>This page contains webassembly and javascript content, please enable
       javascript in your browser.</noscript>
