@@ -81,8 +81,8 @@ pub struct RustCanvas {
     height: u32,
     renderer: Option<Renderer>,
     particles: VecDeque<Particle>,
-    particle_trail_length: usize,
-    vertex_buffer: Vec<f32>,
+    particle_trail_scale: f64,
+    particle_vertex_array: Vec<f32>,
     gravity_wells: Vec<GravityWell>,
     gravity_well_mass: f64,
     borders_are_active: bool,
@@ -95,15 +95,15 @@ impl RustCanvas {
     pub fn new() -> RustCanvas {
         utils::set_panic_hook();
         let particles: VecDeque<Particle> = VecDeque::new();
-        let vertex_buffer: Vec<f32> = Vec::new();
+        let particle_vertex_array: Vec<f32> = Vec::new();
         let rng = rand::thread_rng();
         let mut rust_canvas = RustCanvas {
             width: 0,
             height: 0,
             renderer: None,
             particles,
-            particle_trail_length: 5,
-            vertex_buffer,
+            particle_trail_scale: 0.1,
+            particle_vertex_array,
             gravity_wells: Vec::new(),
             gravity_well_mass: 200.0,
             borders_are_active: false,
@@ -128,13 +128,9 @@ impl RustCanvas {
     }
 
     pub fn initialize_particles(&mut self, num_particles: u32) {
-        self.gravity_wells.push(GravityWell {
-            pos: [self.width as f64 / 2.0, self.height as f64 / 2.0],
-            mass: 200.0,
-            is_selected: false,
-        });
         self.particles.reserve(num_particles as usize);
-        self.vertex_buffer.reserve(num_particles as usize * 12);
+        self.particle_vertex_array
+            .reserve(num_particles as usize * 12);
         let min_vel = -80.0;
         let max_vel = 80.0;
         for _ in 0..num_particles {
@@ -151,19 +147,12 @@ impl RustCanvas {
         delta /= 1000.0;
 
         for well in &self.gravity_wells {
-            let mass = self.gravity_well_mass;
+            // let mass = self.gravity_well_mass;
             for p in &mut self.particles {
                 let p_to_well = vecmath::vec2_sub(well.pos, p.pos);
-                let distance_from_gravity = vecmath::vec2_len(p_to_well);
-                let grav_force = {
-                    if distance_from_gravity <= 30.0 {
-                        // mass / 5.0
-                        mass / 60.0
-                    } else {
-                        well.mass / (distance_from_gravity * 2.0)
-                        // mass / (distance_from_gravity / 2.0)
-                    }
-                };
+                // let mut distance_from_gravity = vecmath::vec2_len(p_to_well);
+                let distance_from_gravity = (15.0f64).max(vecmath::vec2_len(p_to_well));
+                let grav_force = self.gravity_well_mass / (distance_from_gravity * 2.0);
                 let force_dir = vecmath::vec2_normalized(p_to_well);
                 let acc = vecmath::vec2_scale(force_dir, grav_force);
                 p.vel = vecmath::vec2_add(p.vel, acc);
@@ -171,16 +160,11 @@ impl RustCanvas {
         }
 
         for p in &mut self.particles {
-            // if p.prev_positions.len() >= Particle::MAX_TRAIL_LENGTH {
-            //     p.prev_positions.pop_back();
-            // }
-            p.prev_positions.truncate(self.particle_trail_length - 1);
-            p.prev_positions.push_front(p.pos);
             p.pos[0] += p.vel[0] * delta;
             p.pos[1] += p.vel[1] * delta;
 
             // p.vel = vecmath::vec2_scale(p.vel, 0.9999);
-            p.vel = vecmath::vec2_scale(p.vel, 0.999);
+            p.vel = vecmath::vec2_scale(p.vel, 0.998);
             // p.vel = vecmath::vec2_scale(p.vel, 1.001);
 
             if self.borders_are_active {
@@ -199,89 +183,28 @@ impl RustCanvas {
                     p.pos[1] = f64::min(p.pos[1], (self.height - 1) as f64);
                 }
             }
+
+            // p.color.r = p.color.r.wrapping_add(1);
+            // p.color.g = p.color.g.wrapping_add(1);
+            // p.color.b = p.color.b.wrapping_add(1);
         }
     }
 
     pub fn render(&mut self) {
         let _timer = Timer::new("RustCanvas::render");
 
-        if let Some(renderer) = &self.renderer {
-            let gl_context = &renderer.context;
-            let vbo = &renderer.vbo;
-            let particle_shader = &renderer.particle_shader;
-            let projection_mat = &renderer.projection_mat;
-
-            gl_context.clear_color(0.0, 0.0, 0.0, 1.0);
-            gl_context.clear(WebGlRenderingContext::COLOR_BUFFER_BIT);
-
-            gl_context.use_program(Some(particle_shader));
-            gl_context.bind_buffer(WebGlRenderingContext::ARRAY_BUFFER, Some(vbo));
-
-            for (i, p) in self.particles.iter().enumerate() {
-                let idx = i * 12;
-                let from_x = p.pos[0];
-                let from_y = p.pos[1];
-                let to_x = from_x - (p.vel[0] * 0.1);
-                let to_y = from_y - (p.vel[1] * 0.1);
-                self.vertex_buffer[idx + 0] = from_x as f32;
-                self.vertex_buffer[idx + 1] = from_y as f32;
-                self.vertex_buffer[idx + 6] = to_x as f32;
-                self.vertex_buffer[idx + 7] = to_y as f32;
+        match &mut self.renderer {
+            None => {
+                console::log_1(&"Error: No renderer".into());
+                return;
             }
-            unsafe {
-                let vertex_array = js_sys::Float32Array::view(&self.vertex_buffer);
-                gl_context.buffer_data_with_array_buffer_view(
-                    WebGlRenderingContext::ARRAY_BUFFER,
-                    &vertex_array,
-                    WebGlRenderingContext::DYNAMIC_DRAW,
-                );
+            Some(renderer) => {
+                renderer.clear_screen();
+
+                renderer.render_particles(&self.particles, self.particle_trail_scale);
+
+                renderer.render_gravity_wells(&self.gravity_wells);
             }
-
-            let u_proj_location = gl_context.get_uniform_location(particle_shader, "u_Proj");
-            gl_context.uniform_matrix4fv_with_f32_array(
-                u_proj_location.as_ref(),
-                false,
-                projection_mat.as_slice(),
-            );
-
-            let position_attrib_location =
-                gl_context.get_attrib_location(particle_shader, "a_Position"); // as u32;
-            let color_attrib_location = gl_context.get_attrib_location(particle_shader, "a_Color"); // as u32;
-            if position_attrib_location < 0 || color_attrib_location < 0 {
-                console::log_1(&"Invalid attribute location".into());
-            }
-            let stride = 6 * std::mem::size_of::<f32>() as i32;
-            gl_context.vertex_attrib_pointer_with_i32(
-                position_attrib_location as u32,
-                2,
-                WebGlRenderingContext::FLOAT,
-                false,
-                stride,
-                0,
-            );
-            gl_context.enable_vertex_attrib_array(position_attrib_location as u32);
-            let color_attrib_offset = 2 * std::mem::size_of::<f32>() as i32;
-            gl_context.vertex_attrib_pointer_with_i32(
-                color_attrib_location as u32,
-                4,
-                WebGlRenderingContext::FLOAT,
-                false,
-                stride,
-                color_attrib_offset,
-            );
-            gl_context.enable_vertex_attrib_array(color_attrib_location as u32);
-
-            gl_context.draw_arrays(
-                WebGlRenderingContext::LINES,
-                0,
-                self.particles.len() as i32 * 2,
-            );
-
-        // for gravity_well in &self.gravity_wells {
-        //     gravity_well.render(&mut self.pixel_buffer);
-        // }
-        } else {
-            console::log_1(&"error, no renderer".into());
         }
     }
 
@@ -297,22 +220,24 @@ impl RustCanvas {
             .push_back(Particle::new(x, y, vel_x, vel_y, color));
         let from_x = x;
         let from_y = y;
-        let to_x = from_x - (vel_x * 0.1);
-        let to_y = from_y - (vel_y * 0.1);
-        self.vertex_buffer.append(&mut vec![
-            from_x as f32,
-            from_y as f32,
-            color.r as f32 / 255.0,
-            color.g as f32 / 255.0,
-            color.b as f32 / 255.0,
-            1.0,
-            to_x as f32,
-            to_y as f32,
-            color.r as f32 / 255.0,
-            color.g as f32 / 255.0,
-            color.b as f32 / 255.0,
-            0.0,
-        ]);
+        let to_x = from_x - (vel_x * self.particle_trail_scale);
+        let to_y = from_y - (vel_y * self.particle_trail_scale);
+        if let Some(renderer) = &mut self.renderer {
+            renderer.particle_vertex_array.append(&mut vec![
+                from_x as f32,
+                from_y as f32,
+                color.r as f32 / 255.0,
+                color.g as f32 / 255.0,
+                color.b as f32 / 255.0,
+                1.0,
+                to_x as f32,
+                to_y as f32,
+                color.r as f32 / 255.0,
+                color.g as f32 / 255.0,
+                color.b as f32 / 255.0,
+                0.0,
+            ]);
+        }
     }
 
     pub fn spawn_gravity_well(&mut self, x: f64, y: f64) {
@@ -430,9 +355,12 @@ impl RustCanvas {
 
 struct Renderer {
     context: WebGlRenderingContext,
-    particle_shader: WebGlProgram,
     projection_mat: TMat4<f32>,
-    vbo: WebGlBuffer,
+    particle_vbo: WebGlBuffer,
+    gravity_well_vbo: WebGlBuffer,
+    particle_shader: WebGlProgram,
+    gravity_well_shader: WebGlProgram,
+    particle_vertex_array: Vec<f32>,
 }
 
 impl Renderer {
@@ -443,7 +371,7 @@ impl Renderer {
             .unwrap()
             .dyn_into::<WebGlRenderingContext>()
             .unwrap();
-        let vertex_shader = compile_shader(
+        let particle_vertex_shader = compile_shader(
             &context,
             WebGlRenderingContext::VERTEX_SHADER,
             r#"
@@ -462,7 +390,7 @@ impl Renderer {
         "#,
         )
         .unwrap();
-        let fragment_shader = compile_shader(
+        let particle_fragment_shader = compile_shader(
             &context,
             WebGlRenderingContext::FRAGMENT_SHADER,
             r#"
@@ -471,19 +399,67 @@ impl Renderer {
             varying vec4 v_Color;
 
             void main() {
-                // gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
                 gl_FragColor = v_Color;
             }
         "#,
         )
         .unwrap();
-        let particle_shader = link_program(&context, &vertex_shader, &fragment_shader).unwrap();
+        let particle_shader =
+            link_program(&context, &particle_vertex_shader, &particle_fragment_shader).unwrap();
+        let gravity_well_vertex_shader = compile_shader(
+            &context,
+            WebGlRenderingContext::VERTEX_SHADER,
+            r#"
+            attribute vec2 a_Position;
+            
+            uniform mat4 u_Model;
+            uniform mat4 u_Proj;
+            uniform bool u_IsSelected;
+
+            varying vec4 v_Color;
+            
+            void main() {
+                gl_Position = u_Proj * u_Model * vec4(a_Position, 0.0, 1.0);
+                if(u_IsSelected) {
+                    v_Color = vec4(0.3, 0.5, 1.0, 1.0);
+                } else {
+                    v_Color = vec4(0.5, 0.5, 0.5, 1.0);
+                }
+            }
+            "#,
+        )
+        .unwrap();
+        let gravity_well_fragment_shader = compile_shader(
+            &context,
+            WebGlRenderingContext::FRAGMENT_SHADER,
+            r#"
+            precision mediump float;
+
+            varying vec4 v_Color;
+
+            void main() {
+                gl_FragColor = v_Color;
+            }
+        "#,
+        )
+        .unwrap();
+        let gravity_well_shader = link_program(
+            &context,
+            &gravity_well_vertex_shader,
+            &gravity_well_fragment_shader,
+        )
+        .unwrap();
         context.enable(WebGlRenderingContext::BLEND);
         context.blend_func(
             WebGlRenderingContext::SRC_ALPHA,
             WebGlRenderingContext::ONE_MINUS_SRC_ALPHA,
         );
-        let vbo = context
+        // TODO Set position and color location explicitly (before or after linking?)
+        let particle_vbo = context
+            .create_buffer()
+            .ok_or("failed to create buffer")
+            .unwrap();
+        let gravity_well_vbo = context
             .create_buffer()
             .ok_or("failed to create buffer")
             .unwrap();
@@ -499,9 +475,180 @@ impl Renderer {
 
         Renderer {
             context,
-            particle_shader,
             projection_mat,
-            vbo,
+            particle_vbo,
+            gravity_well_vbo,
+            particle_shader,
+            gravity_well_shader,
+            particle_vertex_array: Vec::new(),
+        }
+    }
+
+    fn clear_screen(&self) {
+        self.context.clear_color(0.0, 0.0, 0.0, 1.0);
+        self.context.clear(WebGlRenderingContext::COLOR_BUFFER_BIT);
+    }
+
+    // TODO make particle system its own struct
+    // give it its own trail scale, and particle vec
+    fn render_particles(&mut self, particles: &VecDeque<Particle>, trail_scale: f64) {
+        self.context.use_program(Some(&self.particle_shader));
+        self.context.bind_buffer(
+            WebGlRenderingContext::ARRAY_BUFFER,
+            Some(&self.particle_vbo),
+        );
+
+        for (i, p) in particles.iter().enumerate() {
+            let idx = i * 12;
+            let from_x = p.pos[0];
+            let from_y = p.pos[1];
+            let to_x = from_x - (p.vel[0] * trail_scale);
+            let to_y = from_y - (p.vel[1] * trail_scale);
+            self.particle_vertex_array[idx + 0] = from_x as f32;
+            self.particle_vertex_array[idx + 1] = from_y as f32;
+            self.particle_vertex_array[idx + 2] = p.color.r as f32 / 255.0;
+            self.particle_vertex_array[idx + 3] = p.color.g as f32 / 255.0;
+            self.particle_vertex_array[idx + 4] = p.color.b as f32 / 255.0;
+            self.particle_vertex_array[idx + 5] = 1.0;
+            self.particle_vertex_array[idx + 6] = to_x as f32;
+            self.particle_vertex_array[idx + 7] = to_y as f32;
+            self.particle_vertex_array[idx + 8] = p.color.r as f32 / 255.0;
+            self.particle_vertex_array[idx + 9] = p.color.g as f32 / 255.0;
+            self.particle_vertex_array[idx + 10] = p.color.b as f32 / 255.0;
+            self.particle_vertex_array[idx + 11] = 0.0;
+        }
+        unsafe {
+            let vertex_array = js_sys::Float32Array::view(&self.particle_vertex_array);
+            self.context.buffer_data_with_array_buffer_view(
+                WebGlRenderingContext::ARRAY_BUFFER,
+                &vertex_array,
+                WebGlRenderingContext::DYNAMIC_DRAW,
+            );
+        }
+
+        let u_proj_location = self
+            .context
+            .get_uniform_location(&self.particle_shader, "u_Proj");
+        self.context.uniform_matrix4fv_with_f32_array(
+            u_proj_location.as_ref(),
+            false,
+            self.projection_mat.as_slice(),
+        );
+
+        let position_attrib_location = self
+            .context
+            .get_attrib_location(&self.particle_shader, "a_Position"); // as u32;
+        let color_attrib_location = self
+            .context
+            .get_attrib_location(&self.particle_shader, "a_Color"); // as u32;
+        if position_attrib_location < 0 || color_attrib_location < 0 {
+            console::log_1(&"Invalid attribute location".into());
+        }
+        let stride = 6 * std::mem::size_of::<f32>() as i32;
+        self.context.vertex_attrib_pointer_with_i32(
+            position_attrib_location as u32,
+            2,
+            WebGlRenderingContext::FLOAT,
+            false,
+            stride,
+            0,
+        );
+        self.context
+            .enable_vertex_attrib_array(position_attrib_location as u32);
+        let color_attrib_offset = 2 * std::mem::size_of::<f32>() as i32;
+        self.context.vertex_attrib_pointer_with_i32(
+            color_attrib_location as u32,
+            4,
+            WebGlRenderingContext::FLOAT,
+            false,
+            stride,
+            color_attrib_offset,
+        );
+        self.context
+            .enable_vertex_attrib_array(color_attrib_location as u32);
+
+        self.context
+            .draw_arrays(WebGlRenderingContext::LINES, 0, particles.len() as i32 * 2);
+    }
+
+    fn render_gravity_wells(&self, gravity_wells: &Vec<GravityWell>) {
+        let vertex_array = vec![
+            GravityWell::SIZE as f32,
+            -(GravityWell::SIZE as f32),
+            -(GravityWell::SIZE as f32),
+            -(GravityWell::SIZE as f32),
+            -(GravityWell::SIZE as f32),
+            GravityWell::SIZE as f32,
+            GravityWell::SIZE as f32,
+            -(GravityWell::SIZE as f32),
+            -(GravityWell::SIZE as f32),
+            GravityWell::SIZE as f32,
+            GravityWell::SIZE as f32,
+            GravityWell::SIZE as f32,
+        ];
+        self.context.use_program(Some(&self.gravity_well_shader));
+        self.context.bind_buffer(
+            WebGlRenderingContext::ARRAY_BUFFER,
+            Some(&self.gravity_well_vbo),
+        );
+        unsafe {
+            let vertex_array = js_sys::Float32Array::view(&vertex_array);
+            self.context.buffer_data_with_array_buffer_view(
+                WebGlRenderingContext::ARRAY_BUFFER,
+                &vertex_array,
+                WebGlRenderingContext::DYNAMIC_DRAW,
+            );
+        }
+
+        let u_proj_location = self
+            .context
+            .get_uniform_location(&self.gravity_well_shader, "u_Proj");
+        self.context.uniform_matrix4fv_with_f32_array(
+            u_proj_location.as_ref(),
+            false,
+            self.projection_mat.as_slice(),
+        );
+
+        let u_model_location = self
+            .context
+            .get_uniform_location(&self.gravity_well_shader, "u_Model");
+
+        let u_is_selected_location = self
+            .context
+            .get_uniform_location(&self.gravity_well_shader, "u_IsSelected");
+
+        let position_attrib_location = self
+            .context
+            .get_attrib_location(&self.particle_shader, "a_Position");
+
+        self.context.vertex_attrib_pointer_with_i32(
+            position_attrib_location as u32,
+            2,
+            WebGlRenderingContext::FLOAT,
+            false,
+            0,
+            0,
+        );
+        self.context
+            .enable_vertex_attrib_array(position_attrib_location as u32);
+
+        for gravity_well in gravity_wells {
+            self.context.uniform_matrix4fv_with_f32_array(
+                u_model_location.as_ref(),
+                false,
+                glm::translation(&glm::vec3(
+                    gravity_well.pos[0] as f32,
+                    gravity_well.pos[1] as f32,
+                    0.0,
+                ))
+                .as_slice(),
+            );
+            self.context.uniform1i(
+                u_is_selected_location.as_ref(),
+                gravity_well.is_selected as i32,
+            );
+            self.context
+                .draw_arrays(WebGlRenderingContext::TRIANGLES, 0, 6);
         }
     }
 }
@@ -510,19 +657,14 @@ struct Particle {
     pos: [f64; 2],
     vel: [f64; 2],
     color: Color,
-    prev_positions: VecDeque<[f64; 2]>,
 }
 
 impl Particle {
-    const MAX_TRAIL_LENGTH: usize = 5;
-    const TRAIL_SCALE: f64 = 0.1;
-
     fn new(pos_x: f64, pos_y: f64, vel_x: f64, vel_y: f64, color: Color) -> Particle {
         Particle {
             pos: [pos_x, pos_y],
             vel: [vel_x, vel_y],
             color,
-            prev_positions: VecDeque::with_capacity(Particle::MAX_TRAIL_LENGTH as usize),
         }
     }
 }
@@ -534,7 +676,7 @@ struct GravityWell {
 }
 
 impl GravityWell {
-    const SIZE: u32 = 20;
+    const SIZE: u32 = 10;
 
     fn is_point_inside(&self, x: i32, y: i32) -> bool {
         let (left, top, right, bottom) = self.get_rect();
@@ -544,10 +686,10 @@ impl GravityWell {
     }
 
     fn get_rect(&self) -> (f64, f64, f64, f64) {
-        let left = self.pos[0] - (GravityWell::SIZE as f64 / 2.0);
-        let top = self.pos[1] - (GravityWell::SIZE as f64 / 2.0);
-        let right = self.pos[0] + (GravityWell::SIZE as f64 / 2.0);
-        let bottom = self.pos[1] + (GravityWell::SIZE as f64 / 2.0);
+        let left = self.pos[0] - (GravityWell::SIZE as f64);
+        let top = self.pos[1] - (GravityWell::SIZE as f64);
+        let right = self.pos[0] + (GravityWell::SIZE as f64);
+        let bottom = self.pos[1] + (GravityWell::SIZE as f64);
         (left, top, right, bottom)
     }
 
