@@ -99,16 +99,16 @@ window.oncontextmenu = (e) => {
 canvas.addEventListener("pointerdown", (e) => {
   if (e.button === 0) {
     if (e.ctrlKey) {
-      rustCanvas.spawn_gravity_well(mouseX, mouseY);
+      rustCanvas.spawn_gravity_well(e.offsetX, e.offsetY);
     } else {
-      if (rustCanvas.try_selecting(mouseX, mouseY)) {
+      if (rustCanvas.try_selecting(e.offsetX, e.offsetY)) {
         isDragging = true;
       } else {
         isSpawningParticles = true;
       }
     }
   } else if (e.button === 2) {
-    rustCanvas.try_removing(mouseX, mouseY);
+    rustCanvas.try_removing(e.offsetX, e.offsetY);
   }
 });
 
@@ -116,7 +116,7 @@ canvas.addEventListener("pointermove", (e) => {
   mouseX = e.offsetX;
   mouseY = e.offsetY;
   if (isDragging) {
-    rustCanvas.drag_selection(e.movementX, e.movementY);
+    rustCanvas.move_selection_to(e.offsetX, e.offsetY);
   }
 });
 
