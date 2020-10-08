@@ -18,14 +18,14 @@ struct Timer<'a> {
 
 impl<'a> Timer<'a> {
     pub fn new(name: &'a str) -> Timer<'a> {
-        console::time_with_label(name);
+        // console::time_with_label(name);
         Timer { name }
     }
 }
 
 impl<'a> Drop for Timer<'a> {
     fn drop(&mut self) {
-        console::time_end_with_label(self.name);
+        // console::time_end_with_label(self.name);
     }
 }
 
@@ -169,7 +169,7 @@ impl RustCanvas {
             p.pos[1] += p.vel[1] * delta;
 
             // p.vel = vecmath::vec2_scale(p.vel, 0.9999);
-            p.vel = vecmath::vec2_scale(p.vel, 0.998);
+            p.vel = vecmath::vec2_scale(p.vel, 0.999);
             // p.vel = vecmath::vec2_scale(p.vel, 1.001);
 
             if self.borders_are_active {
