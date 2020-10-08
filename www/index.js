@@ -131,8 +131,14 @@ window.addEventListener("pointerup", (e) => {
 });
 
 const rustCanvas = RustCanvas.new();
+let image = new Image();
+image.onload = function() {
+    rustCanvas.add_texture_from_image("gravity_well", image);
+};
+image.src = './gravity_well.bmp';
+// image.src = 'https://homepages.cae.wisc.edu/~ece533/images/boy.bmp';
 rustCanvas.spawn_gravity_well(canvas.width / 2.0, canvas.height / 2.0);
-rustCanvas.initialize_particles(10000);
+rustCanvas.initialize_particles(1000);
 
 const frameRateCounter = new (class {
   constructor() {

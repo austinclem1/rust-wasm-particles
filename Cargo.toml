@@ -27,14 +27,15 @@ version = "0.3.44"
 features = [
     'CanvasRenderingContext2d',
     'console',
-    'ImageData',
     'Document',
     'Element',
     'HtmlCanvasElement',
+    'HtmlImageElement',
     'WebGlBuffer',
     'WebGlRenderingContext',
     'WebGlProgram',
     'WebGlShader',
+    'WebGlTexture',
     'WebGlUniformLocation',
     'Window',
 ]

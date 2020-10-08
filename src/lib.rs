@@ -2,11 +2,14 @@ mod utils;
 use rand::Rng;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{console, WebGlBuffer, WebGlProgram, WebGlRenderingContext, WebGlShader};
+use web_sys::{
+    console, HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlRenderingContext, WebGlShader,
+    WebGlTexture,
+};
 extern crate libc;
 extern crate nalgebra_glm as glm;
 use glm::TMat4;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use vecmath;
 
 struct Timer<'a> {
@@ -146,7 +149,9 @@ impl RustCanvas {
         let _timer = Timer::new("RustCanvas::update()");
         delta /= 1000.0;
 
-        for well in &self.gravity_wells {
+        for well in &mut self.gravity_wells {
+            well.rotation_deg += GravityWell::ROTATION_SPEED;
+            well.rotation_deg %= 360.0;
             // let mass = self.gravity_well_mass;
             for p in &mut self.particles {
                 let p_to_well = vecmath::vec2_sub(well.pos, p.pos);
@@ -241,11 +246,7 @@ impl RustCanvas {
     }
 
     pub fn spawn_gravity_well(&mut self, x: f64, y: f64) {
-        self.gravity_wells.push(GravityWell {
-            pos: [x, y],
-            mass: 200.0,
-            is_selected: false,
-        });
+        self.gravity_wells.push(GravityWell::new([x, y], 200.0));
     }
 
     pub fn try_selecting(&mut self, x: i32, y: i32) -> bool {
@@ -351,10 +352,53 @@ impl RustCanvas {
     pub fn set_should_clear_screen(&mut self, new_state: bool) {
         self.should_clear_screen = new_state;
     }
+
+    pub fn add_texture_from_image(&mut self, name: String, image: &HtmlImageElement) {
+        if let Some(renderer) = &mut self.renderer {
+            let texture = renderer.context.create_texture();
+            renderer
+                .context
+                .bind_texture(WebGlRenderingContext::TEXTURE_2D, texture.as_ref());
+            renderer
+                .context
+                .tex_image_2d_with_u32_and_u32_and_image(
+                    WebGlRenderingContext::TEXTURE_2D,
+                    0,
+                    WebGlRenderingContext::RGBA as i32,
+                    WebGlRenderingContext::RGBA,
+                    WebGlRenderingContext::UNSIGNED_BYTE,
+                    image,
+                )
+                .expect("failed to buffer image data to gravity well texture");
+            if is_power_of_2(image.width()) && is_power_of_2(image.height()) {
+                renderer
+                    .context
+                    .generate_mipmap(WebGlRenderingContext::TEXTURE_2D);
+            } else {
+                renderer.context.tex_parameteri(
+                    WebGlRenderingContext::TEXTURE_2D,
+                    WebGlRenderingContext::TEXTURE_WRAP_S,
+                    WebGlRenderingContext::CLAMP_TO_EDGE as i32,
+                );
+                renderer.context.tex_parameteri(
+                    WebGlRenderingContext::TEXTURE_2D,
+                    WebGlRenderingContext::TEXTURE_WRAP_T,
+                    WebGlRenderingContext::CLAMP_TO_EDGE as i32,
+                );
+                renderer.context.tex_parameteri(
+                    WebGlRenderingContext::TEXTURE_2D,
+                    WebGlRenderingContext::TEXTURE_MIN_FILTER,
+                    WebGlRenderingContext::LINEAR as i32,
+                );
+            }
+            renderer.textures.insert(name, texture);
+        }
+    }
 }
 
 struct Renderer {
     context: WebGlRenderingContext,
+    textures: HashMap<String, Option<WebGlTexture>>,
     projection_mat: TMat4<f32>,
     particle_vbo: WebGlBuffer,
     gravity_well_vbo: WebGlBuffer,
@@ -411,20 +455,22 @@ impl Renderer {
             WebGlRenderingContext::VERTEX_SHADER,
             r#"
             attribute vec2 a_Position;
+            attribute vec2 a_TexCoord;
             
+            uniform bool u_IsSelected;
             uniform mat4 u_Model;
             uniform mat4 u_Proj;
-            uniform bool u_IsSelected;
 
-            varying vec4 v_Color;
+            varying mediump vec2 v_TexCoord;
             
             void main() {
                 gl_Position = u_Proj * u_Model * vec4(a_Position, 0.0, 1.0);
-                if(u_IsSelected) {
-                    v_Color = vec4(0.3, 0.5, 1.0, 1.0);
-                } else {
-                    v_Color = vec4(0.5, 0.5, 0.5, 1.0);
-                }
+                v_TexCoord = a_TexCoord;
+                // if(u_IsSelected) {
+                //     v_Color = vec4(0.3, 0.5, 1.0, 1.0);
+                // } else {
+                //     v_Color = vec4(0.5, 0.5, 0.5, 1.0);
+                // }
             }
             "#,
         )
@@ -433,12 +479,14 @@ impl Renderer {
             &context,
             WebGlRenderingContext::FRAGMENT_SHADER,
             r#"
-            precision mediump float;
+            // precision mediump float;
 
-            varying vec4 v_Color;
+            varying mediump vec2 v_TexCoord;
+
+            uniform sampler2D u_Sampler;
 
             void main() {
-                gl_FragColor = v_Color;
+                gl_FragColor = texture2D(u_Sampler, v_TexCoord);
             }
         "#,
         )
@@ -473,8 +521,30 @@ impl Renderer {
             1.0,
         );
 
+        let mut textures = HashMap::new();
+        let not_found_texture = context.create_texture();
+        context.bind_texture(
+            WebGlRenderingContext::TEXTURE_2D,
+            not_found_texture.as_ref(),
+        );
+        context
+            .tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
+                WebGlRenderingContext::TEXTURE_2D,
+                0,
+                WebGlRenderingContext::RGBA as i32,
+                1,
+                1,
+                0,
+                WebGlRenderingContext::RGBA,
+                WebGlRenderingContext::UNSIGNED_BYTE,
+                Some(&[0u8, 0u8, 255u8, 255u8]),
+            )
+            .expect("failed to create not_found texture");
+        textures.insert("not_found".to_owned(), not_found_texture);
+
         Renderer {
             context,
+            textures,
             projection_mat,
             particle_vbo,
             gravity_well_vbo,
@@ -573,18 +643,36 @@ impl Renderer {
 
     fn render_gravity_wells(&self, gravity_wells: &Vec<GravityWell>) {
         let vertex_array = vec![
-            GravityWell::SIZE as f32,
-            -(GravityWell::SIZE as f32),
-            -(GravityWell::SIZE as f32),
-            -(GravityWell::SIZE as f32),
-            -(GravityWell::SIZE as f32),
-            GravityWell::SIZE as f32,
-            GravityWell::SIZE as f32,
-            -(GravityWell::SIZE as f32),
-            -(GravityWell::SIZE as f32),
-            GravityWell::SIZE as f32,
-            GravityWell::SIZE as f32,
-            GravityWell::SIZE as f32,
+            // top right
+            GravityWell::RADIUS as f32,
+            -(GravityWell::RADIUS as f32),
+            1.0,
+            1.0,
+            // top left
+            -(GravityWell::RADIUS as f32),
+            -(GravityWell::RADIUS as f32),
+            0.0,
+            1.0,
+            // bottom left
+            -(GravityWell::RADIUS as f32),
+            GravityWell::RADIUS as f32,
+            0.0,
+            0.0,
+            // top right
+            GravityWell::RADIUS as f32,
+            -(GravityWell::RADIUS as f32),
+            1.0,
+            1.0,
+            // bottom left
+            -(GravityWell::RADIUS as f32),
+            GravityWell::RADIUS as f32,
+            0.0,
+            0.0,
+            // bottom right
+            GravityWell::RADIUS as f32,
+            GravityWell::RADIUS as f32,
+            1.0,
+            0.0,
         ];
         self.context.use_program(Some(&self.gravity_well_shader));
         self.context.bind_buffer(
@@ -602,51 +690,99 @@ impl Renderer {
 
         let u_proj_location = self
             .context
-            .get_uniform_location(&self.gravity_well_shader, "u_Proj");
+            .get_uniform_location(&self.gravity_well_shader, "u_Proj")
+            .expect("failed to get u_Proj uniform location");
         self.context.uniform_matrix4fv_with_f32_array(
-            u_proj_location.as_ref(),
+            Some(&u_proj_location),
             false,
             self.projection_mat.as_slice(),
         );
 
+        // let u_is_selected_location = match self
+        //     .context
+        //     .get_uniform_location(&self.gravity_well_shader, "u_IsSelected")
+        // {
+        //     Some(location) => location,
+        //     None => {
+        //         let error_code = self.context.get_error();
+        //         console::log_1(
+        //             &format!(
+        //                 "failed to get u_IsSelected uniform location. error code: {}",
+        //                 error_code
+        //             )
+        //             .into(),
+        //         );
+        //         panic!();
+        //     }
+        // };
         let u_model_location = self
             .context
-            .get_uniform_location(&self.gravity_well_shader, "u_Model");
+            .get_uniform_location(&self.gravity_well_shader, "u_Model")
+            .expect("failed to get u_Model uniform location");
 
-        let u_is_selected_location = self
+        let u_sampler_location = self
             .context
-            .get_uniform_location(&self.gravity_well_shader, "u_IsSelected");
+            .get_uniform_location(&self.gravity_well_shader, "u_Sampler")
+            .expect("failed to get u_Sampler uniform location");
 
         let position_attrib_location = self
             .context
-            .get_attrib_location(&self.particle_shader, "a_Position");
+            .get_attrib_location(&self.gravity_well_shader, "a_Position");
 
+        let tex_coord_attrib_location = self
+            .context
+            .get_attrib_location(&self.gravity_well_shader, "a_TexCoord");
+
+        let stride = (std::mem::size_of::<f32>() * 2) + (std::mem::size_of::<f32>() * 2);
         self.context.vertex_attrib_pointer_with_i32(
             position_attrib_location as u32,
             2,
             WebGlRenderingContext::FLOAT,
             false,
+            stride as i32,
             0,
-            0,
+        );
+        self.context.vertex_attrib_pointer_with_i32(
+            tex_coord_attrib_location as u32,
+            2,
+            WebGlRenderingContext::FLOAT,
+            false,
+            stride as i32,
+            (std::mem::size_of::<f32>() * 2) as i32,
         );
         self.context
             .enable_vertex_attrib_array(position_attrib_location as u32);
+        self.context
+            .enable_vertex_attrib_array(tex_coord_attrib_location as u32);
+        let gravity_well_tex = self
+            .textures
+            .get("gravity_well")
+            .or(self.textures.get("not_found"))
+            .expect("failed to load 'not_found' texture");
+
+        self.context.active_texture(WebGlRenderingContext::TEXTURE0);
+        self.context
+            .bind_texture(WebGlRenderingContext::TEXTURE_2D, gravity_well_tex.as_ref());
+        self.context.uniform1i(Some(&u_sampler_location), 0);
 
         for gravity_well in gravity_wells {
-            self.context.uniform_matrix4fv_with_f32_array(
-                u_model_location.as_ref(),
-                false,
-                glm::translation(&glm::vec3(
+            let model_mat = glm::rotate_z(
+                &glm::translation(&glm::vec3(
                     gravity_well.pos[0] as f32,
                     gravity_well.pos[1] as f32,
                     0.0,
-                ))
-                .as_slice(),
+                )),
+                gravity_well.rotation_deg as f32 * 0.01745329252,
             );
-            self.context.uniform1i(
-                u_is_selected_location.as_ref(),
-                gravity_well.is_selected as i32,
+            self.context.uniform_matrix4fv_with_f32_array(
+                Some(&u_model_location),
+                false,
+                model_mat.as_slice(),
             );
+            // self.context.uniform1i(
+            //     Some(&u_is_selected_location),
+            //     gravity_well.is_selected as i32,
+            // );
             self.context
                 .draw_arrays(WebGlRenderingContext::TRIANGLES, 0, 6);
         }
@@ -671,25 +807,44 @@ impl Particle {
 
 struct GravityWell {
     pos: [f64; 2],
+    rotation_deg: f64,
     mass: f64,
     is_selected: bool,
 }
 
 impl GravityWell {
-    const SIZE: u32 = 10;
+    const RADIUS: u32 = 20;
+    const ROTATION_SPEED: f64 = 2.0;
+
+    fn new(pos: [f64; 2], mass: f64) -> Self {
+        GravityWell {
+            pos,
+            rotation_deg: 0.0,
+            mass,
+            is_selected: false,
+        }
+    }
 
     fn is_point_inside(&self, x: i32, y: i32) -> bool {
-        let (left, top, right, bottom) = self.get_rect();
-        let x = x as f64;
-        let y = y as f64;
-        x >= left && y >= top && x <= right && y <= bottom
+        // let (left, top, right, bottom) = self.get_rect();
+        // let x = x as f64;
+        // let y = y as f64;
+        // x >= left && y >= top && x <= right && y <= bottom
+        let delta_x = (x as f64 - self.pos[0]).abs();
+        let delta_y = (y as f64 - self.pos[1]).abs();
+        let distance_from_well = glm::length(&glm::vec2(delta_x, delta_y));
+        if distance_from_well <= GravityWell::RADIUS as f64 {
+            true
+        } else {
+            false
+        }
     }
 
     fn get_rect(&self) -> (f64, f64, f64, f64) {
-        let left = self.pos[0] - (GravityWell::SIZE as f64);
-        let top = self.pos[1] - (GravityWell::SIZE as f64);
-        let right = self.pos[0] + (GravityWell::SIZE as f64);
-        let bottom = self.pos[1] + (GravityWell::SIZE as f64);
+        let left = self.pos[0] - (GravityWell::RADIUS as f64);
+        let top = self.pos[1] - (GravityWell::RADIUS as f64);
+        let right = self.pos[0] + (GravityWell::RADIUS as f64);
+        let bottom = self.pos[1] + (GravityWell::RADIUS as f64);
         (left, top, right, bottom)
     }
 
@@ -727,5 +882,13 @@ impl Color {
         self.g = new_g;
         self.b = new_b;
         self.a = new_a;
+    }
+}
+
+fn is_power_of_2(n: u32) -> bool {
+    if (n & (n - 1)) == 0 {
+        true
+    } else {
+        false
     }
 }
