@@ -304,7 +304,7 @@ impl RustCanvas {
         self.particles.len()
     }
 
-    pub fn set_particle_trail_length(&mut self, scale: f64) {
+    pub fn set_particle_trail_scale(&mut self, scale: f64) {
         self.particle_trail_scale = scale;
     }
 

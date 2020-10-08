@@ -16,8 +16,8 @@
     </style>
   </head>
   <body>
-    <div class="box" style="flex-flow: row wrap">
-      <canvas id="canvas" width="640" height="480"></canvas>
+    <div class="box" style="flex-flow: row wrap; justify-content: center;">
+      <canvas id="canvas" width="1280" height="720" style="touch-action: none;"></canvas>
       <div class="box" style="flex-flow: column wrap; justify-content: center;">
         <div>
           <input type="range" id="gravity-well-mass" min="1" max="1000" />
@@ -40,9 +40,8 @@
           <button id="sim-speed-up">+</button>
         </div>
         <div>
-          <button id="particle-trail-length-down">-</button>
-          <label id="particle-trail-length-label"></label>
-          <button id="particle-trail-length-up">+</button>
+          <input type="range" id="particle-trail-scale" min="0.01" max="0.8" step="0.05" />
+          <label for="particle-trail-scale">Particle Trail Scale</label>
         </div>
         <div>
           <button id="remove-some-particles-button">Remove 250 Particles</button>

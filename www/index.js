@@ -8,7 +8,6 @@ const MAX_UPDATES_PER_FRAME = 50;
 
 let isSpawningParticles = false;
 let particleSpawnRate = 5;
-let particleTrailLength = 5;
 let isDragging = false;
 let mouseX = 0;
 let mouseY = 0;
@@ -68,29 +67,15 @@ const updateSimSpeedLabel = () => {
   ).textContent = `Simulation Speed: x${simTicksPerFrame}`;
 };
 
-let particleTrailLengthDownButton = document.getElementById(
-  "particle-trail-length-down"
-);
-let particleTrailLengthUpButton = document.getElementById(
-  "particle-trail-length-up"
-);
-particleTrailLengthDownButton.addEventListener("click", (e) => {
-  if (particleTrailLength > 1) {
-    particleTrailLength -= 1;
-  }
-  rustCanvas.set_particle_trail_length(particleTrailLength);
-  updateParticleTrailLengthLabel();
+// const updateParticleTrailLengthLabel = () => {
+//   document.getElementById(
+//     "particle-trail-length-label"
+//   ).textContent = `Particle Trail Length: ${particleTrailLength}`;
+// };
+let trailScaleSlider = document.getElementById("particle-trail-scale");
+trailScaleSlider.addEventListener("change", (e) => {
+  rustCanvas.set_particle_trail_scale(trailScaleSlider.value);
 });
-particleTrailLengthUpButton.addEventListener("click", (e) => {
-  particleTrailLength += 1;
-  rustCanvas.set_particle_trail_length(particleTrailLength);
-  updateParticleTrailLengthLabel();
-});
-const updateParticleTrailLengthLabel = () => {
-  document.getElementById(
-    "particle-trail-length-label"
-  ).textContent = `Particle Trail Length: ${particleTrailLength}`;
-};
 
 window.oncontextmenu = (e) => {
   e.preventDefault();
