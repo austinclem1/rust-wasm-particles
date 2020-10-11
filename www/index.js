@@ -123,7 +123,7 @@ image.onload = function() {
 image.src = './gravity_well.bmp';
 // image.src = 'https://homepages.cae.wisc.edu/~ece533/images/boy.bmp';
 rustCanvas.spawn_gravity_well(canvas.width / 2.0, canvas.height / 2.0);
-rustCanvas.initialize_particles(1000);
+rustCanvas.initialize_particles(10000);
 
 const frameRateCounter = new (class {
   constructor() {
@@ -162,12 +162,12 @@ min of last 100: ${Math.round(min)}\n
 })();
 
 let spawnParticle = () => {
-  let randPosRange = 8;
-  let randVelRange = 60;
-  let spawnX = mouseX + (Math.random() * randPosRange - randPosRange / 2);
-  let spawnY = mouseY + (Math.random() * randPosRange - randPosRange / 2);
-  let spawnVelX = Math.random() * randVelRange - randVelRange / 2;
-  let spawnVelY = Math.random() * randVelRange - randVelRange / 2;
+  const randPosRange = 8;
+  const randVelRange = 150;
+  const spawnX = mouseX + (Math.random() * randPosRange - randPosRange / 2);
+  const spawnY = mouseY + (Math.random() * randPosRange - randPosRange / 2);
+  const spawnVelX = Math.random() * randVelRange - randVelRange / 2;
+  const spawnVelY = Math.random() * randVelRange - randVelRange / 2;
   rustCanvas.spawn_particle(spawnX, spawnY, spawnVelX, spawnVelY);
 };
 
@@ -175,20 +175,18 @@ let updateParticleCountLabel = () => {
   particleCountElement.textContent = `Particles: ${rustCanvas.get_particle_count()}`;
 };
 
-let currentFrameTime = performance.now();
+let lastFrameTime = performance.now();
 let timeSinceUpdate = 0.0;
-let timeSinceRender = 0.0;
-const renderLoop = () => {
+const renderLoop = (currentFrameTime) => {
   // frameRateCounter.render();
-  let lastFrameTime = currentFrameTime;
-  currentFrameTime = performance.now();
-  let frameDelta = currentFrameTime - lastFrameTime;
-  timeSinceUpdate += frameDelta;
-  timeSinceRender += frameDelta;
+  let deltaTime = currentFrameTime - lastFrameTime;
+  lastFrameTime = currentFrameTime;
   updateParticleCountLabel();
   updateSimSpeedLabel();
+  timeSinceUpdate += deltaTime;
   let updatesThisFrame = 0;
-  do {
+  while (timeSinceUpdate >= (16.7/simTicksPerFrame)) {
+    // updatesThisFrame <= MAX_UPDATES_PER_FRAME) {
     for (let i = 0; i < simTicksPerFrame; i++) {
       if (isSpawningParticles) {
         for (let i = 0; i < particleSpawnRate; i++) {
@@ -197,12 +195,9 @@ const renderLoop = () => {
       }
       rustCanvas.update(16.7);
     }
-    timeSinceUpdate -= 16.7;
+    timeSinceUpdate -= (16.7/simTicksPerFrame);
     updatesThisFrame++;
-  } while (
-    timeSinceUpdate >= 16.7 &&
-    updatesThisFrame <= MAX_UPDATES_PER_FRAME
-  );
+  }
   rustCanvas.render();
   requestAnimationFrame(renderLoop);
 };
