@@ -149,18 +149,31 @@ impl RustCanvas {
         let _timer = Timer::new("RustCanvas::update()");
         delta /= 1000.0;
 
+        // TODO only loop through particles once, loop through wells within particle loop instead?
+        // test performance on that
         for well in &mut self.gravity_wells {
+            // rotate gravity well
             well.rotation_deg += GravityWell::ROTATION_SPEED;
             well.rotation_deg %= 360.0;
-            // let mass = self.gravity_well_mass;
+
+            // calculate and apply gravity force and velocity for each particle
             for p in &mut self.particles {
                 let p_to_well = vecmath::vec2_sub(well.pos, p.pos);
-                // let mut distance_from_gravity = vecmath::vec2_len(p_to_well);
-                let distance_from_gravity = (15.0f64).max(vecmath::vec2_len(p_to_well));
-                let grav_force = self.gravity_well_mass / (distance_from_gravity * 2.0);
+                // let distance_squared = f64::max(1.0, f64::powi(vecmath::vec2_len(p_to_well), 2));
+                let distance_squared = f64::max(1.0, f64::sqrt(vecmath::vec2_len(p_to_well)));
+                // let distance_squared = f64::max(1.0, vecmath::vec2_len(p_to_well) / 1.0);
+                let grav_force = self.gravity_well_mass / (distance_squared);
+                // let grav_force = self.gravity_well_mass
+                //     / (distance_squared * f64::sqrt(distance_squared + Self::SOFTENING_CONSTANT));
                 let force_dir = vecmath::vec2_normalized(p_to_well);
                 let acc = vecmath::vec2_scale(force_dir, grav_force);
                 p.vel = vecmath::vec2_add(p.vel, acc);
+                // if vecmath::vec2_len(p.vel) > Particle::MAX_VELOCITY {
+                //     p.vel = vecmath::vec2_scale(
+                //         p.vel,
+                //         Particle::MAX_VELOCITY / vecmath::vec2_len(p.vel),
+                //     );
+                // }
             }
         }
 
@@ -168,8 +181,9 @@ impl RustCanvas {
             p.pos[0] += p.vel[0] * delta;
             p.pos[1] += p.vel[1] * delta;
 
-            // p.vel = vecmath::vec2_scale(p.vel, 0.9999);
-            p.vel = vecmath::vec2_scale(p.vel, 0.999);
+            // apply 'drag' to particles
+            // p.vel = vecmath::vec2_scale(p.vel, 0.9995);
+            p.vel = vecmath::vec2_scale(p.vel, 0.997);
             // p.vel = vecmath::vec2_scale(p.vel, 1.001);
 
             if self.borders_are_active {
@@ -395,6 +409,10 @@ impl RustCanvas {
             renderer.textures.insert(name, texture);
         }
     }
+}
+
+impl RustCanvas {
+    const SOFTENING_CONSTANT: f64 = 600.0;
 }
 
 struct Renderer {
@@ -797,6 +815,7 @@ struct Particle {
 }
 
 impl Particle {
+    const MAX_VELOCITY: f64 = 2000.0;
     fn new(pos_x: f64, pos_y: f64, vel_x: f64, vel_y: f64, color: Color) -> Particle {
         Particle {
             pos: [pos_x, pos_y],
