@@ -131,9 +131,9 @@ impl RustCanvas {
     }
 
     pub fn initialize_particles(&mut self, num_particles: u32) {
-        self.particles.reserve(num_particles as usize);
-        self.particle_vertex_array
-            .reserve(num_particles as usize * 12);
+        // self.particles.reserve(num_particles as usize);
+        // self.particle_vertex_array
+        //     .reserve(num_particles as usize * 12);
         let min_vel = -80.0;
         let max_vel = 80.0;
         for _ in 0..num_particles {
@@ -245,16 +245,11 @@ impl RustCanvas {
             renderer.particle_vertex_array.append(&mut vec![
                 from_x as f32,
                 from_y as f32,
-                color.r as f32 / 255.0,
-                color.g as f32 / 255.0,
-                color.b as f32 / 255.0,
-                1.0,
                 to_x as f32,
                 to_y as f32,
-                color.r as f32 / 255.0,
-                color.g as f32 / 255.0,
-                color.b as f32 / 255.0,
-                0.0,
+            ]);
+            renderer.particle_color_array.append(&mut vec![
+                color.r, color.g, color.b, 255, color.r, color.g, color.b, 0,
             ]);
         }
     }
@@ -419,11 +414,13 @@ struct Renderer {
     context: WebGlRenderingContext,
     textures: HashMap<String, Option<WebGlTexture>>,
     projection_mat: TMat4<f32>,
-    particle_vbo: WebGlBuffer,
+    particle_vertex_buffer: WebGlBuffer,
+    particle_color_buffer: WebGlBuffer,
     gravity_well_vbo: WebGlBuffer,
     particle_shader: WebGlProgram,
     gravity_well_shader: WebGlProgram,
     particle_vertex_array: Vec<f32>,
+    particle_color_array: Vec<u8>,
 }
 
 impl Renderer {
@@ -457,8 +454,8 @@ impl Renderer {
             &context,
             WebGlRenderingContext::FRAGMENT_SHADER,
             r#"
+            
             precision mediump float;
-
             varying vec4 v_Color;
 
             void main() {
@@ -522,10 +519,15 @@ impl Renderer {
             WebGlRenderingContext::ONE_MINUS_SRC_ALPHA,
         );
         // TODO Set position and color location explicitly (before or after linking?)
-        let particle_vbo = context
+        let particle_vertex_buffer = context
             .create_buffer()
             .ok_or("failed to create buffer")
             .unwrap();
+        let particle_color_buffer = context
+            .create_buffer()
+            .ok_or("failed to create buffer")
+            .unwrap();
+
         let gravity_well_vbo = context
             .create_buffer()
             .ok_or("failed to create buffer")
@@ -565,11 +567,13 @@ impl Renderer {
             context,
             textures,
             projection_mat,
-            particle_vbo,
+            particle_vertex_buffer,
+            particle_color_buffer,
             gravity_well_vbo,
             particle_shader,
             gravity_well_shader,
             particle_vertex_array: Vec::new(),
+            particle_color_array: Vec::new(),
         }
     }
 
@@ -582,30 +586,32 @@ impl Renderer {
     // give it its own trail scale, and particle vec
     fn render_particles(&mut self, particles: &VecDeque<Particle>, trail_scale: f64) {
         self.context.use_program(Some(&self.particle_shader));
-        self.context.bind_buffer(
-            WebGlRenderingContext::ARRAY_BUFFER,
-            Some(&self.particle_vbo),
-        );
 
         for (i, p) in particles.iter().enumerate() {
-            let idx = i * 12;
+            let idx = i * 4;
             let from_x = p.pos[0];
             let from_y = p.pos[1];
             let to_x = from_x - (p.vel[0] * trail_scale);
             let to_y = from_y - (p.vel[1] * trail_scale);
             self.particle_vertex_array[idx + 0] = from_x as f32;
             self.particle_vertex_array[idx + 1] = from_y as f32;
-            self.particle_vertex_array[idx + 2] = p.color.r as f32 / 255.0;
-            self.particle_vertex_array[idx + 3] = p.color.g as f32 / 255.0;
-            self.particle_vertex_array[idx + 4] = p.color.b as f32 / 255.0;
-            self.particle_vertex_array[idx + 5] = 1.0;
-            self.particle_vertex_array[idx + 6] = to_x as f32;
-            self.particle_vertex_array[idx + 7] = to_y as f32;
-            self.particle_vertex_array[idx + 8] = p.color.r as f32 / 255.0;
-            self.particle_vertex_array[idx + 9] = p.color.g as f32 / 255.0;
-            self.particle_vertex_array[idx + 10] = p.color.b as f32 / 255.0;
-            self.particle_vertex_array[idx + 11] = 0.0;
+            self.particle_vertex_array[idx + 2] = to_x as f32;
+            self.particle_vertex_array[idx + 3] = to_y as f32;
+
+            self.particle_color_array[idx + 0] = p.color.r;
+            self.particle_color_array[idx + 1] = p.color.g;
+            self.particle_color_array[idx + 2] = p.color.b;
+            self.particle_color_array[idx + 3] = 255;
+            self.particle_color_array[idx + 4] = p.color.r;
+            self.particle_color_array[idx + 5] = p.color.g;
+            self.particle_color_array[idx + 6] = p.color.b;
+            self.particle_color_array[idx + 7] = 0;
         }
+
+        self.context.bind_buffer(
+            WebGlRenderingContext::ARRAY_BUFFER,
+            Some(&self.particle_vertex_buffer),
+        );
         unsafe {
             let vertex_array = js_sys::Float32Array::view(&self.particle_vertex_array);
             self.context.buffer_data_with_array_buffer_view(
@@ -615,6 +621,51 @@ impl Renderer {
             );
         }
 
+        self.context.bind_buffer(
+            WebGlRenderingContext::ARRAY_BUFFER,
+            Some(&self.particle_vertex_buffer),
+        );
+        unsafe {
+            let color_array = js_sys::Uint8Array::view(&self.particle_color_array);
+            self.context.buffer_data_with_array_buffer_view(
+                WebGlRenderingContext::ARRAY_BUFFER,
+                &color_array,
+                WebGlRenderingContext::DYNAMIC_DRAW,
+            );
+        }
+
+        let position_attrib_location = self
+            .context
+            .get_attrib_location(&self.particle_shader, "a_Position");
+        let color_attrib_location = self
+            .context
+            .get_attrib_location(&self.particle_shader, "a_Color");
+        if position_attrib_location < 0 || color_attrib_location < 0 {
+            console::log_1(&"Invalid attribute location".into());
+        }
+        let position_buffer_stride = 2 * std::mem::size_of::<f32>() as i32;
+        self.context.vertex_attrib_pointer_with_i32(
+            position_attrib_location as u32,
+            2,
+            WebGlRenderingContext::FLOAT,
+            false,
+            position_buffer_stride,
+            0,
+        );
+        self.context
+            .enable_vertex_attrib_array(position_attrib_location as u32);
+        let color_buffer_stride = 4 * std::mem::size_of::<u8>() as i32;
+        self.context.vertex_attrib_pointer_with_i32(
+            color_attrib_location as u32,
+            4,
+            WebGlRenderingContext::UNSIGNED_BYTE,
+            true,
+            color_buffer_stride,
+            0,
+        );
+        self.context
+            .enable_vertex_attrib_array(color_attrib_location as u32);
+
         let u_proj_location = self
             .context
             .get_uniform_location(&self.particle_shader, "u_Proj");
@@ -623,38 +674,6 @@ impl Renderer {
             false,
             self.projection_mat.as_slice(),
         );
-
-        let position_attrib_location = self
-            .context
-            .get_attrib_location(&self.particle_shader, "a_Position"); // as u32;
-        let color_attrib_location = self
-            .context
-            .get_attrib_location(&self.particle_shader, "a_Color"); // as u32;
-        if position_attrib_location < 0 || color_attrib_location < 0 {
-            console::log_1(&"Invalid attribute location".into());
-        }
-        let stride = 6 * std::mem::size_of::<f32>() as i32;
-        self.context.vertex_attrib_pointer_with_i32(
-            position_attrib_location as u32,
-            2,
-            WebGlRenderingContext::FLOAT,
-            false,
-            stride,
-            0,
-        );
-        self.context
-            .enable_vertex_attrib_array(position_attrib_location as u32);
-        let color_attrib_offset = 2 * std::mem::size_of::<f32>() as i32;
-        self.context.vertex_attrib_pointer_with_i32(
-            color_attrib_location as u32,
-            4,
-            WebGlRenderingContext::FLOAT,
-            false,
-            stride,
-            color_attrib_offset,
-        );
-        self.context
-            .enable_vertex_attrib_array(color_attrib_location as u32);
 
         self.context
             .draw_arrays(WebGlRenderingContext::LINES, 0, particles.len() as i32 * 2);
