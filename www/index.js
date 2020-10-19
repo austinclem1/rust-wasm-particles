@@ -1,10 +1,12 @@
+"use strict";
+
 import { RustCanvas } from "rust-graphics";
 import { memory } from "rust-graphics/rust_graphics_bg";
 
 // const CANVAS_WIDTH = 512;
 // const CANVAS_HEIGHT = 512;
 
-const MAX_UPDATES_PER_FRAME = 50;
+const MAX_UPDATES_PER_FRAME = 10;
 
 let isSpawningParticles = false;
 let particleSpawnRate = 5;
@@ -116,6 +118,7 @@ window.addEventListener("pointerup", (e) => {
 });
 
 const rustCanvas = RustCanvas.new();
+rustCanvas.initialize();
 let image = new Image();
 image.onload = function() {
     rustCanvas.add_texture_from_image("gravity_well", image);
@@ -123,7 +126,7 @@ image.onload = function() {
 image.src = './gravity_well.bmp';
 // image.src = 'https://homepages.cae.wisc.edu/~ece533/images/boy.bmp';
 rustCanvas.spawn_gravity_well(canvas.width / 2.0, canvas.height / 2.0);
-rustCanvas.initialize_particles(10000);
+rustCanvas.initialize_particles(40000);
 
 const frameRateCounter = new (class {
   constructor() {
