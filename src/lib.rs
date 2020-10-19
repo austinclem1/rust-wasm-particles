@@ -334,6 +334,10 @@ impl RustCanvas {
 
     pub fn clear_particles(&mut self) {
         self.particles.clear();
+        if let Some(renderer) = &mut self.renderer {
+            renderer.particle_color_array.clear();
+            renderer.particle_vertex_array.clear();
+        }
     }
 
     pub fn remove_particles(&mut self, num_to_remove: usize) {
@@ -627,25 +631,44 @@ impl Renderer {
     fn render_particles(&mut self, particles: &VecDeque<Particle>, trail_scale: f64) {
         self.context.use_program(Some(&self.particle_shader));
 
+        let position_attrib_location = self
+            .context
+            .get_attrib_location(&self.particle_shader, "a_Position");
+        let color_attrib_location = self
+            .context
+            .get_attrib_location(&self.particle_shader, "a_Color");
+        if position_attrib_location < 0 || color_attrib_location < 0 {
+            console::log_1(&"Invalid attribute location".into());
+        }
+
         for (i, p) in particles.iter().enumerate() {
-            let idx = i * 4;
+            let pos_idx = i * 4;
+            let color_idx = i * 8;
             let from_x = p.pos[0];
             let from_y = p.pos[1];
-            let to_x = from_x - (p.vel[0] * trail_scale);
-            let to_y = from_y - (p.vel[1] * trail_scale);
-            self.particle_vertex_array[idx + 0] = from_x as f32;
-            self.particle_vertex_array[idx + 1] = from_y as f32;
-            self.particle_vertex_array[idx + 2] = to_x as f32;
-            self.particle_vertex_array[idx + 3] = to_y as f32;
+            let line_delta_x = match -1.0 * p.vel[0] * trail_scale {
+                n if n.abs() >= 1.0 => n,
+                _ => 1.0,
+            };
+            let line_delta_y = match -1.0 * p.vel[1] * trail_scale {
+                n if n.abs() >= 1.0 => n,
+                _ => 1.0,
+            };
+            let to_x = from_x + line_delta_x;
+            let to_y = from_y + line_delta_y;
+            self.particle_vertex_array[pos_idx + 0] = from_x as f32;
+            self.particle_vertex_array[pos_idx + 1] = from_y as f32;
+            self.particle_vertex_array[pos_idx + 2] = to_x as f32;
+            self.particle_vertex_array[pos_idx + 3] = to_y as f32;
 
-            self.particle_color_array[idx + 0] = p.color.r;
-            self.particle_color_array[idx + 1] = p.color.g;
-            self.particle_color_array[idx + 2] = p.color.b;
-            self.particle_color_array[idx + 3] = 255;
-            self.particle_color_array[idx + 4] = p.color.r;
-            self.particle_color_array[idx + 5] = p.color.g;
-            self.particle_color_array[idx + 6] = p.color.b;
-            self.particle_color_array[idx + 7] = 0;
+            self.particle_color_array[color_idx + 0] = p.color.r;
+            self.particle_color_array[color_idx + 1] = p.color.g;
+            self.particle_color_array[color_idx + 2] = p.color.b;
+            self.particle_color_array[color_idx + 3] = 255;
+            self.particle_color_array[color_idx + 4] = p.color.r;
+            self.particle_color_array[color_idx + 5] = p.color.g;
+            self.particle_color_array[color_idx + 6] = p.color.b;
+            self.particle_color_array[color_idx + 7] = 0;
         }
 
         self.context.bind_buffer(
@@ -660,10 +683,22 @@ impl Renderer {
                 WebGlRenderingContext::DYNAMIC_DRAW,
             );
         }
+        let position_buffer_stride = 2 * std::mem::size_of::<f32>() as i32;
+        self.context.vertex_attrib_pointer_with_i32(
+            position_attrib_location as u32,
+            2,
+            WebGlRenderingContext::FLOAT,
+            false,
+            // position_buffer_stride,
+            0,
+            0,
+        );
+        self.context
+            .enable_vertex_attrib_array(position_attrib_location as u32);
 
         self.context.bind_buffer(
             WebGlRenderingContext::ARRAY_BUFFER,
-            Some(&self.particle_vertex_buffer),
+            Some(&self.particle_color_buffer),
         );
         unsafe {
             let color_array = js_sys::Uint8Array::view(&self.particle_color_array);
@@ -674,33 +709,14 @@ impl Renderer {
             );
         }
 
-        let position_attrib_location = self
-            .context
-            .get_attrib_location(&self.particle_shader, "a_Position");
-        let color_attrib_location = self
-            .context
-            .get_attrib_location(&self.particle_shader, "a_Color");
-        if position_attrib_location < 0 || color_attrib_location < 0 {
-            console::log_1(&"Invalid attribute location".into());
-        }
-        let position_buffer_stride = 2 * std::mem::size_of::<f32>() as i32;
-        self.context.vertex_attrib_pointer_with_i32(
-            position_attrib_location as u32,
-            2,
-            WebGlRenderingContext::FLOAT,
-            false,
-            position_buffer_stride,
-            0,
-        );
-        self.context
-            .enable_vertex_attrib_array(position_attrib_location as u32);
         let color_buffer_stride = 4 * std::mem::size_of::<u8>() as i32;
         self.context.vertex_attrib_pointer_with_i32(
             color_attrib_location as u32,
             4,
             WebGlRenderingContext::UNSIGNED_BYTE,
             true,
-            color_buffer_stride,
+            // color_buffer_stride,
+            0,
             0,
         );
         self.context
@@ -766,6 +782,7 @@ impl Renderer {
             );
         }
 
+        // TODO try just a 2D projection instead of 4D matrix
         let u_proj_location = self
             .context
             .get_uniform_location(&self.gravity_well_shader, "u_Proj")
