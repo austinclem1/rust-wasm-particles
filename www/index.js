@@ -177,28 +177,62 @@ let updateParticleCountLabel = () => {
 
 let lastFrameTime = performance.now();
 let timeSinceUpdate = 0.0;
-const renderLoop = (currentFrameTime) => {
-  // frameRateCounter.render();
-  let deltaTime = currentFrameTime - lastFrameTime;
+let deltaTime = 0.0;
+let updatesThisFrame;
+const animationFrameLoop = (currentFrameTime) => {
+  frameRateCounter.render();
+  deltaTime = currentFrameTime - lastFrameTime;
   lastFrameTime = currentFrameTime;
   updateParticleCountLabel();
   updateSimSpeedLabel();
   timeSinceUpdate += deltaTime;
-  let updatesThisFrame = 0;
-  while (timeSinceUpdate >= (16.7/simTicksPerFrame)) {
-    // updatesThisFrame <= MAX_UPDATES_PER_FRAME) {
+  updatesThisFrame = 0;
+  while (timeSinceUpdate >= (16.7/simTicksPerFrame) &&
+    updatesThisFrame <= MAX_UPDATES_PER_FRAME) {
     for (let i = 0; i < simTicksPerFrame; i++) {
+      rustCanvas.update_1(16.7);
       if (isSpawningParticles) {
-        for (let i = 0; i < particleSpawnRate; i++) {
+        for (let j = 0; j < particleSpawnRate; j++) {
           spawnParticle();
         }
       }
-      rustCanvas.update(16.7);
+      updatesThisFrame++;
     }
-    timeSinceUpdate -= (16.7/simTicksPerFrame);
-    updatesThisFrame++;
+    timeSinceUpdate -= 16.7;
   }
+  // rustCanvas.update_1(deltaTime * simTicksPerFrame);
+  // if (isSpawningParticles) {
+  //   for (let i = 0; i < particleSpawnRate * simTicksPerFrame; i++) {
+  //     spawnParticle();
+  //   }
+  // }
   rustCanvas.render();
-  requestAnimationFrame(renderLoop);
+  requestAnimationFrame(animationFrameLoop);
 };
-requestAnimationFrame(renderLoop);
+
+// BENCHING
+// let update_1_start = performance.now();
+// rustCanvas.clear_particles();
+// for (let i = 0; i < 1; i++) {
+//   rustCanvas.initialize_particles(100000);
+//   for (let j = 0; j < 600; j++) {
+//     rustCanvas.update_1(16.7);
+//   }
+// }
+// let update_1_elapsed = performance.now() - update_1_start;
+
+// let update_2_start = performance.now();
+// rustCanvas.clear_particles();
+// for (let i = 0; i < 1; i++) {
+//   rustCanvas.initialize_particles(100000);
+//   for (let j = 0; j < 600; j++) {
+//     rustCanvas.update_2(16.7);
+//   }
+// }
+// let update_2_elapsed = performance.now() - update_2_start;
+
+// console.log("Update 1 time elapsed: ", update_1_elapsed);
+// console.log("Update 2 time elapsed: ", update_2_elapsed);
+
+
+requestAnimationFrame(animationFrameLoop);
