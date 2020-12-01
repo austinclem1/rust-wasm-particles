@@ -148,8 +148,6 @@ impl RustCanvas {
         let _timer = Timer::new("RustCanvas::update()");
         delta /= 1000.0;
 
-        // TODO only loop through particles once, loop through wells within particle loop instead?
-        // test performance on that
         for well in &mut self.gravity_wells {
             // rotate gravity well
             well.rotation_deg += GravityWell::ROTATION_SPEED;
@@ -475,6 +473,9 @@ impl Renderer {
             .unwrap()
             .dyn_into::<WebGlRenderingContext>()
             .unwrap();
+
+        let projection_mat = glm::ortho(0.0, canvas.width() as f32, canvas.height() as f32, 0.0, 1.0, -1.0);
+
         let particle_vertex_shader = compile_shader(
             &context,
             WebGlRenderingContext::VERTEX_SHADER,
@@ -576,15 +577,6 @@ impl Renderer {
             .create_buffer()
             .ok_or("failed to create buffer")
             .unwrap();
-
-        let projection_mat = nalgebra_glm::ortho(
-            0.0,
-            canvas.width() as f32,
-            canvas.height() as f32,
-            0.0,
-            -1.0,
-            1.0,
-        );
 
         let mut textures = HashMap::new();
         let not_found_texture = context.create_texture();
@@ -724,9 +716,10 @@ impl Renderer {
 
         let u_proj_location = self
             .context
-            .get_uniform_location(&self.particle_shader, "u_Proj");
+            .get_uniform_location(&self.particle_shader, "u_Proj")
+            .expect("Failed to get u_Proj uniform location");
         self.context.uniform_matrix4fv_with_f32_array(
-            u_proj_location.as_ref(),
+            Some(&u_proj_location),
             false,
             self.projection_mat.as_slice(),
         );
