@@ -126,7 +126,7 @@ image.onload = function() {
 image.src = './gravity_well.bmp';
 // image.src = 'https://homepages.cae.wisc.edu/~ece533/images/boy.bmp';
 rustCanvas.spawn_gravity_well(canvas.width / 2.0, canvas.height / 2.0);
-rustCanvas.initialize_particles(40000);
+rustCanvas.initialize_particles(10000);
 
 const frameRateCounter = new (class {
   constructor() {
