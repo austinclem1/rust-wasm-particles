@@ -108,7 +108,7 @@ impl RustCanvas {
             particle_trail_scale: 0.1,
             particle_vertex_array,
             gravity_wells: Vec::new(),
-            gravity_well_mass: 200.0,
+            gravity_well_mass: 90.0,
             borders_are_active: false,
             should_clear_screen: true,
             rng,
@@ -159,8 +159,8 @@ impl RustCanvas {
             for p in &mut self.particles {
                 let p_to_well = vecmath::vec2_sub(well.pos, p.pos);
                 // let distance_squared = f64::max(1.0, f64::powi(vecmath::vec2_len(p_to_well), 2));
-                let distance_squared = f64::max(1.0, f64::sqrt(vecmath::vec2_len(p_to_well)));
-                // let distance_squared = f64::max(1.0, vecmath::vec2_len(p_to_well) / 1.0);
+                // let distance_squared = f64::max(1.0, f64::sqrt(vecmath::vec2_len(p_to_well)));
+                let distance_squared = f64::max(1.0, vecmath::vec2_len(p_to_well) / 30.0);
                 let grav_force = self.gravity_well_mass / (distance_squared);
                 // let grav_force = self.gravity_well_mass
                 //     / (distance_squared * f64::sqrt(distance_squared + Self::SOFTENING_CONSTANT));
