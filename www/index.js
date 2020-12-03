@@ -22,62 +22,6 @@ let simTicksPerFrame = 1;
 // let canvas = document.getElementById("game-canvas");
 // const ctx = canvas.getContext("2d");
 
-let gravityWellMassSlider = document.getElementById("gravity-well-mass");
-gravityWellMassSlider.addEventListener("change", (e) => {
-  wasmApp.set_gravity_well_mass(gravityWellMassSlider.value);
-});
-
-let particleCountElement = document.getElementById("particle-count");
-
-let clearParticlesButton = document.getElementById("clear-particles-button");
-clearParticlesButton.addEventListener("click", (e) => {
-  wasmApp.clear_particles();
-});
-
-let removeSomeParticlesButton = document.getElementById(
-  "remove-some-particles-button"
-);
-removeSomeParticlesButton.addEventListener("click", (e) => {
-  wasmApp.remove_particles(250);
-});
-
-let bordersActiveCheckbox = document.getElementById("borders-active-checkbox");
-bordersActiveCheckbox.addEventListener("input", (e) => {
-  wasmApp.set_borders_active(bordersActiveCheckbox.checked);
-});
-
-let screenClearCheckbox = document.getElementById("clear-screen-checkbox");
-screenClearCheckbox.addEventListener("input", (e) => {
-  wasmApp.set_should_clear_screen(screenClearCheckbox.checked);
-});
-
-let simSpeedDownButton = document.getElementById("sim-speed-down");
-let simSpeedUpButton = document.getElementById("sim-speed-up");
-simSpeedDownButton.addEventListener("click", (e) => {
-  if (simTicksPerFrame > 1) {
-    simTicksPerFrame -= 1;
-  }
-  updateSimSpeedLabel();
-});
-simSpeedUpButton.addEventListener("click", (e) => {
-  simTicksPerFrame += 1;
-  updateSimSpeedLabel();
-});
-const updateSimSpeedLabel = () => {
-  document.getElementById(
-    "sim-speed-label"
-  ).textContent = `Simulation Speed: x${simTicksPerFrame}`;
-};
-
-// const updateParticleTrailLengthLabel = () => {
-//   document.getElementById(
-//     "particle-trail-length-label"
-//   ).textContent = `Particle Trail Length: ${particleTrailLength}`;
-// };
-let trailScaleSlider = document.getElementById("particle-trail-scale");
-trailScaleSlider.addEventListener("change", (e) => {
-  wasmApp.set_particle_trail_scale(trailScaleSlider.value);
-});
 
 window.oncontextmenu = (e) => {
   e.preventDefault();
@@ -205,39 +149,55 @@ const animationFrameLoop = (currentFrameTime) => {
     }
     timeSinceUpdate -= 16.7;
   }
-  // wasmApp.update_1(deltaTime * simTicksPerFrame);
-  // if (isSpawningParticles) {
-  //   for (let i = 0; i < particleSpawnRate * simTicksPerFrame; i++) {
-  //     spawnParticle();
-  //   }
-  // }
   wasmApp.render();
   requestAnimationFrame(animationFrameLoop);
 };
 
-// BENCHING
-// let update_1_start = performance.now();
-// wasmApp.clear_particles();
-// for (let i = 0; i < 1; i++) {
-//   wasmApp.initialize_particles(100000);
-//   for (let j = 0; j < 600; j++) {
-//     wasmApp.update_1(16.7);
-//   }
-// }
-// let update_1_elapsed = performance.now() - update_1_start;
-
-// let update_2_start = performance.now();
-// wasmApp.clear_particles();
-// for (let i = 0; i < 1; i++) {
-//   wasmApp.initialize_particles(100000);
-//   for (let j = 0; j < 600; j++) {
-//     wasmApp.update_2(16.7);
-//   }
-// }
-// let update_2_elapsed = performance.now() - update_2_start;
-
-// console.log("Update 1 time elapsed: ", update_1_elapsed);
-// console.log("Update 2 time elapsed: ", update_2_elapsed);
-
-
 requestAnimationFrame(animationFrameLoop);
+
+function onChangeGravityWellMassSlider() {
+  wasmApp.set_gravity_well_mass(gravityWellMassSlider.value);
+}
+
+let particleCountElement = document.getElementById("particle-count");
+
+function onClickClearParticlesButton() {
+  wasmApp.clear_particles();
+}
+
+function onClickRemoveSomeParticlesButton() {
+  wasmApp.remove_particles(250);
+}
+
+function onClickBordersActiveCheckbox(checkbox) {
+  wasmApp.set_borders_active(checkbox.checked);
+}
+
+function onClickScreenClearCheckbox(checkbox) {
+  wasmApp.set_should_clear_screen(checkbox.checked);
+}
+
+function onClickSimSpeedDownButton() {
+  if (simTicksPerFrame > 1) {
+    simTicksPerFrame -= 1;
+  }
+  updateSimSpeedLabel();
+}
+function onClickSimSpeedUpButton() {
+  simTicksPerFrame += 1;
+  updateSimSpeedLabel();
+}
+function updateSimSpeedLabel = {
+  document.getElementById(
+    "sim-speed-label"
+  ).textContent = `Simulation Speed: x${simTicksPerFrame}`;
+}
+
+// const updateParticleTrailLengthLabel = () => {
+//   document.getElementById(
+//     "particle-trail-length-label"
+//   ).textContent = `Particle Trail Length: ${particleTrailLength}`;
+// };
+function onChangeTrailScaleSlider() {
+  wasmApp.set_particle_trail_scale(trailScaleSlider.value);
+}

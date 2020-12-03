@@ -20,31 +20,41 @@
       <canvas id="canvas" width="800" height="600" style="touch-action: none;"></canvas>
       <div class="box" style="flex-flow: column wrap; justify-content: center;">
         <div>
-          <input type="range" id="gravity-well-mass" min="1" max="1000" />
+          <input type="range" min="1" max="1000"
+						if="gravity-well-mass" onchange="onChangeGravityWellMassSlider()"/>
           <label for="gravity-well-mass">Gravity Well Mass</label>
         </div>
         <div id="fps"></div>
         <div id="particle-count"></div>
-        <div><button id="clear-particles-button">Clear Particles</button></div>
         <div>
-          <input id="borders-active-checkbox" type="checkbox" />
+					<button onclick="onClickClearParticlesButton()">
+						Clear Particles
+					</button>
+				</div>
+        <div>
+          <input type="checkbox" id="borders-active-checkbox"
+						onclick="onClickBordersActiveCheckbox()" />
           <label for="borders-active-checkbox">Solid Borders</label>
         </div>
         <div>
-          <input id="clear-screen-checkbox" type="checkbox" checked="true" />
+          <input type="checkbox" id="clear-screen-checkbox" checked="true"
+						onclick="onClickScreenClearCheckbox()"/>
           <label for="clear-screen-checkbox">Clear Screen Each Frame</label>
         </div>
         <div>
-          <button id="sim-speed-down">-</button>
+          <button onclick="onClickSimSpeedDownButton()">-</button>
           <label id="sim-speed-label"></label>
-          <button id="sim-speed-up">+</button>
+          <button onclick="onClickSimSpeedUpButton()">+</button>
         </div>
         <div>
-          <input type="range" id="particle-trail-scale" min="0.01" max="0.8" step="0.05" />
+          <input type="range" min="0.01" max="0.8" step="0.05"
+						id="particle-trail-scale" onchange="onChangeTrailScaleSlider()"/>
           <label for="particle-trail-scale">Particle Trail Scale</label>
         </div>
         <div>
-          <button id="remove-some-particles-button">Remove 250 Particles</button>
+          <button onclick="onClickRemoveSomeParticlesButton()">
+						Remove 250 Particles
+					</button>
         </div>
       </div>
     </div>
