@@ -109,7 +109,7 @@ impl WasmApp {
         }
     }
 
-    pub fn update_1(&mut self, mut delta: f64) {
+    pub fn update(&mut self, mut delta: f64) {
         let _timer = Timer::new("WasmApp::update()");
         delta /= 1000.0;
 
@@ -168,47 +168,6 @@ impl WasmApp {
             // p.color.r = p.color.r.wrapping_add(1);
             // p.color.g = p.color.g.wrapping_add(1);
             // p.color.b = p.color.b.wrapping_add(1);
-        }
-    }
-
-    pub fn update_2(&mut self, mut delta: f64) {
-        let _timer = Timer::new("WasmApp::update()");
-        delta /= 1000.0;
-
-        for well in &mut self.gravity_wells {
-            well.rotation_deg += GravityWell::ROTATION_SPEED;
-            well.rotation_deg %= 360.0;
-        }
-
-        for p in &mut self.particles {
-            for well in &self.gravity_wells {
-                let p_to_well = vecmath::vec2_sub(well.pos, p.pos);
-                let distance_squared = f64::max(1.0, f64::sqrt(vecmath::vec2_len(p_to_well)));
-                let grav_force = self.gravity_well_mass / (distance_squared);
-                let force_dir = vecmath::vec2_normalized(p_to_well);
-                let acc = vecmath::vec2_scale(force_dir, grav_force);
-                p.vel = vecmath::vec2_add(p.vel, acc);
-            }
-            p.pos[0] += p.vel[0] * delta;
-            p.pos[1] += p.vel[1] * delta;
-
-            // apply 'drag' to particles
-            p.vel = vecmath::vec2_scale(p.vel, 0.99);
-
-            if self.borders_are_active {
-                if p.pos[0] < 0.0 || p.pos[0] >= self.width as f64 {
-                    p.vel[0] *= -1.0;
-                    // p.pos[0] = p.pos[0].max(0.0);
-                    p.pos[0] = f64::max(p.pos[0], 0.0);
-                    // p.pos[0] = p.pos[0].min((self.width - p.size) as f64);
-                    p.pos[0] = f64::min(p.pos[0], (self.width - 1) as f64);
-                }
-                if p.pos[1] < 0.0 || p.pos[1] >= self.height as f64 {
-                    p.vel[1] *= -1.0;
-                    p.pos[1] = f64::max(p.pos[1], 0.0);
-                    p.pos[1] = f64::min(p.pos[1], (self.height - 1) as f64);
-                }
-            }
         }
     }
 

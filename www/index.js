@@ -139,7 +139,7 @@ const animationFrameLoop = (currentFrameTime) => {
   while (timeSinceUpdate >= (16.7/simTicksPerFrame) &&
     updatesThisFrame <= MAX_UPDATES_PER_FRAME) {
     for (let i = 0; i < simTicksPerFrame; i++) {
-      wasmApp.update_1(16.7);
+      wasmApp.update(16.7);
       if (isSpawningParticles) {
         for (let j = 0; j < particleSpawnRate; j++) {
           spawnParticle();
