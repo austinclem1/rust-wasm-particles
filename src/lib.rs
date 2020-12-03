@@ -1,22 +1,23 @@
-mod color;
-mod utils;
-mod gravity_well;
-mod renderer;
-mod shader;
-mod particle;
-mod webgl_helpers;
-use color::Color;
-use particle::Particle;
-use gravity_well::GravityWell;
-use renderer::Renderer;
-use rand::Rng;
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
-use web_sys::{ console, HtmlImageElement, WebGlRenderingContext };
 extern crate libc;
 extern crate nalgebra_glm as glm;
+mod color;
+// calls console.time.end(`name`) when it is dropped.
+mod gravity_well;
+mod particle;
+mod renderer;
+mod shader;
+mod utils;
+mod webgl_helpers;
+use color::Color;
+use gravity_well::GravityWell;
+use particle::Particle;
+use rand::Rng;
+use renderer::Renderer;
 use std::collections::VecDeque;
 use vecmath;
+use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
+use web_sys::{ console, HtmlImageElement, WebGlRenderingContext };
 
 struct Timer<'a> {
     name: &'a str,
