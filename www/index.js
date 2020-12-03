@@ -3,9 +3,6 @@
 import { WasmApp } from "rust-graphics";
 import { memory } from "rust-graphics/rust_graphics_bg";
 
-// const CANVAS_WIDTH = 512;
-// const CANVAS_HEIGHT = 512;
-
 const MAX_UPDATES_PER_FRAME = 10;
 
 let isSpawningParticles = false;
@@ -15,12 +12,11 @@ let mouseX = 0;
 let mouseY = 0;
 let simTicksPerFrame = 1;
 
-// let canvas = document.createElement("canvas");
-// canvas.width = CANVAS_WIDTH;
-// canvas.height = CANVAS_HEIGHT;
-// document.body.appendChild(canvas);
-// let canvas = document.getElementById("game-canvas");
-// const ctx = canvas.getContext("2d");
+// const updateParticleTrailLengthLabel = () => {
+//   document.getElementById(
+//     "particle-trail-length-label"
+//   ).textContent = `Particle Trail Length: ${particleTrailLength}`;
+// };
 
 
 window.oncontextmenu = (e) => {
@@ -120,9 +116,6 @@ let spawnParticle = () => {
   wasmApp.spawn_particle(spawnX, spawnY, spawnVelX, spawnVelY);
 };
 
-let updateParticleCountLabel = () => {
-  particleCountElement.textContent = `Particles: ${wasmApp.get_particle_count()}`;
-};
 
 let lastFrameTime = performance.now();
 let timeSinceUpdate = 0.0;
@@ -155,11 +148,13 @@ const animationFrameLoop = (currentFrameTime) => {
 
 requestAnimationFrame(animationFrameLoop);
 
+function updateParticleCountLabel() {
+  document.getElementById("particle-count-label").textContent = `Particles: ${wasmApp.get_particle_count()}`;
+}
+
 function onChangeGravityWellMassSlider() {
   wasmApp.set_gravity_well_mass(gravityWellMassSlider.value);
 }
-
-let particleCountElement = document.getElementById("particle-count");
 
 function onClickClearParticlesButton() {
   wasmApp.clear_particles();
@@ -183,21 +178,18 @@ function onClickSimSpeedDownButton() {
   }
   updateSimSpeedLabel();
 }
+
 function onClickSimSpeedUpButton() {
   simTicksPerFrame += 1;
   updateSimSpeedLabel();
 }
-function updateSimSpeedLabel = {
+
+function updateSimSpeedLabel() {
   document.getElementById(
     "sim-speed-label"
   ).textContent = `Simulation Speed: x${simTicksPerFrame}`;
 }
 
-// const updateParticleTrailLengthLabel = () => {
-//   document.getElementById(
-//     "particle-trail-length-label"
-//   ).textContent = `Particle Trail Length: ${particleTrailLength}`;
-// };
 function onChangeTrailScaleSlider() {
   wasmApp.set_particle_trail_scale(trailScaleSlider.value);
 }

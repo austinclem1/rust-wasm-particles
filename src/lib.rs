@@ -4,7 +4,6 @@ mod color;
 mod gravity_well;
 mod particle;
 mod renderer;
-mod shader;
 mod utils;
 mod webgl_helpers;
 use color::Color;
