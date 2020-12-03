@@ -1,3 +1,5 @@
+// Helper functions for dealing with shaders, compiling and linking them into shader programs
+
 use web_sys::{ WebGlRenderingContext, WebGlShader, WebGlProgram };
 pub fn compile_shader(
     context: &WebGlRenderingContext,

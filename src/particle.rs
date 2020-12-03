@@ -1,3 +1,5 @@
+// Simple particle struct to keep track of individual position, velocity, and color
+
 use crate::color::Color;
 
 pub struct Particle {

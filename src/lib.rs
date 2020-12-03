@@ -39,6 +39,10 @@ impl<'a> Drop for Timer<'a> {
     }
 }
 
+// Rust portion of the main app, owns all state for the particle simulation
+// and decides how to handle user input (sent from JavaScript front end)
+// Has a Renderer struct that handles rendering to the WebGl context
+// that it gets from the DOM
 #[wasm_bindgen]
 pub struct WasmApp {
     width: u32,

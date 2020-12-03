@@ -1,3 +1,6 @@
+// Simple gravity well class, keeps track of position, rotation,
+// and can determine if a click event lands within its borders
+
 pub struct GravityWell {
     pub pos: [f64; 2],
     pub rotation_deg: f64,
@@ -18,11 +21,9 @@ impl GravityWell {
         }
     }
 
+    // Used for checking if the user's click is inside this gravity well
+    // For clicking and dragging
     pub fn is_point_inside(&self, x: i32, y: i32) -> bool {
-        // let (left, top, right, bottom) = self.get_rect();
-        // let x = x as f64;
-        // let y = y as f64;
-        // x >= left && y >= top && x <= right && y <= bottom
         let delta_x = (x as f64 - self.pos[0]).abs();
         let delta_y = (y as f64 - self.pos[1]).abs();
         let distance_from_well = glm::length(&glm::vec2(delta_x, delta_y));
@@ -33,6 +34,7 @@ impl GravityWell {
         }
     }
 
+    // Get canvas coordinates of each side of the gravity well
     pub fn get_rect(&self) -> (f64, f64, f64, f64) {
         let left = self.pos[0] - (GravityWell::RADIUS as f64);
         let top = self.pos[1] - (GravityWell::RADIUS as f64);

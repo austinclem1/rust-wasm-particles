@@ -1,3 +1,4 @@
+// Simple color struct, created from an unsigned 32 representing RRGGBBAA
 #[derive(Copy, Clone)]
 pub struct Color {
     pub r: u8,

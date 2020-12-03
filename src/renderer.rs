@@ -1,3 +1,7 @@
+// Renderer struct that handles WebGl calls, and contains data for rendering,
+// including textures, matrices for projecting into normalized screen coordinates,
+// and shaders.
+
 use wasm_bindgen::JsCast;
 use crate::webgl_helpers;
 use crate::particle::Particle;
@@ -21,6 +25,8 @@ pub struct Renderer {
 }
 
 impl Renderer {
+    // On creation grabs reference to WebGl context from canvas on the DOM
+    // Tries to compile shaders and link them into shader programs
     pub fn new(canvas: &web_sys::HtmlCanvasElement) -> Self {
         let context = canvas
             .get_context("webgl")
@@ -134,6 +140,8 @@ impl Renderer {
             .ok_or("failed to create buffer")
             .unwrap();
 
+        // Hashmap for storing named textures, creates a texture of one blue pixel
+        // to use as a default when a requested texture isn't found in the hashmap
         let mut textures = HashMap::new();
         let not_found_texture = context.create_texture();
         context.bind_texture(
@@ -174,8 +182,6 @@ impl Renderer {
         self.context.clear(WebGlRenderingContext::COLOR_BUFFER_BIT);
     }
 
-    // TODO make particle system its own struct
-    // give it its own trail scale, and particle vec
     pub fn render_particles(&mut self, particles: &VecDeque<Particle>, trail_scale: f64) {
         self.context.use_program(Some(&self.particle_shader));
 
@@ -286,6 +292,7 @@ impl Renderer {
 
     pub fn render_gravity_wells(&self, gravity_wells: &Vec<GravityWell>) {
         let vertex_array = vec![
+            // Triangle 1:
             // top right
             GravityWell::RADIUS as f32,
             -(GravityWell::RADIUS as f32),
@@ -301,6 +308,8 @@ impl Renderer {
             GravityWell::RADIUS as f32,
             1.0,
             1.0,
+
+            // Triangle 2:
             // top right
             GravityWell::RADIUS as f32,
             -(GravityWell::RADIUS as f32),
