@@ -37,7 +37,7 @@ impl<'a> Drop for Timer<'a> {
 }
 
 #[wasm_bindgen]
-pub struct RustCanvas {
+pub struct WasmApp {
     width: u32,
     height: u32,
     renderer: Option<Renderer>,
@@ -52,13 +52,13 @@ pub struct RustCanvas {
 }
 
 #[wasm_bindgen]
-impl RustCanvas {
-    pub fn new() -> RustCanvas {
+impl WasmApp {
+    pub fn new() -> WasmApp {
         utils::set_panic_hook();
         let particles: VecDeque<Particle> = VecDeque::new();
         let particle_vertex_array: Vec<f32> = Vec::new();
         let rng = rand::thread_rng();
-        let mut rust_canvas = RustCanvas {
+        let mut rust_canvas = WasmApp {
             width: 0,
             height: 0,
             renderer: None,
@@ -103,7 +103,7 @@ impl RustCanvas {
     }
 
     pub fn update_1(&mut self, mut delta: f64) {
-        let _timer = Timer::new("RustCanvas::update()");
+        let _timer = Timer::new("WasmApp::update()");
         delta /= 1000.0;
 
         for well in &mut self.gravity_wells {
@@ -165,7 +165,7 @@ impl RustCanvas {
     }
 
     pub fn update_2(&mut self, mut delta: f64) {
-        let _timer = Timer::new("RustCanvas::update()");
+        let _timer = Timer::new("WasmApp::update()");
         delta /= 1000.0;
 
         for well in &mut self.gravity_wells {
@@ -206,7 +206,7 @@ impl RustCanvas {
     }
 
     pub fn render(&mut self) {
-        let _timer = Timer::new("RustCanvas::render");
+        let _timer = Timer::new("WasmApp::render");
 
         match &mut self.renderer {
             None => {
@@ -224,7 +224,7 @@ impl RustCanvas {
     }
 
     pub fn spawn_particle(&mut self, x: f64, y: f64, vel_x: f64, vel_y: f64) {
-        // let _timer = Timer::new("RustCanvas::spawn_particle");
+        // let _timer = Timer::new("WasmApp::spawn_particle");
         let color = Color {
             r: self.rng.gen::<u8>(),
             g: self.rng.gen::<u8>(),
@@ -406,7 +406,7 @@ impl RustCanvas {
     }
 }
 
-impl RustCanvas {
+impl WasmApp {
     const SOFTENING_CONSTANT: f64 = 600.0;
 }
 

@@ -1,6 +1,6 @@
 "use strict";
 
-import { RustCanvas } from "rust-graphics";
+import { WasmApp } from "rust-graphics";
 import { memory } from "rust-graphics/rust_graphics_bg";
 
 // const CANVAS_WIDTH = 512;
@@ -24,31 +24,31 @@ let simTicksPerFrame = 1;
 
 let gravityWellMassSlider = document.getElementById("gravity-well-mass");
 gravityWellMassSlider.addEventListener("change", (e) => {
-  rustCanvas.set_gravity_well_mass(gravityWellMassSlider.value);
+  wasmApp.set_gravity_well_mass(gravityWellMassSlider.value);
 });
 
 let particleCountElement = document.getElementById("particle-count");
 
 let clearParticlesButton = document.getElementById("clear-particles-button");
 clearParticlesButton.addEventListener("click", (e) => {
-  rustCanvas.clear_particles();
+  wasmApp.clear_particles();
 });
 
 let removeSomeParticlesButton = document.getElementById(
   "remove-some-particles-button"
 );
 removeSomeParticlesButton.addEventListener("click", (e) => {
-  rustCanvas.remove_particles(250);
+  wasmApp.remove_particles(250);
 });
 
 let bordersActiveCheckbox = document.getElementById("borders-active-checkbox");
 bordersActiveCheckbox.addEventListener("input", (e) => {
-  rustCanvas.set_borders_active(bordersActiveCheckbox.checked);
+  wasmApp.set_borders_active(bordersActiveCheckbox.checked);
 });
 
 let screenClearCheckbox = document.getElementById("clear-screen-checkbox");
 screenClearCheckbox.addEventListener("input", (e) => {
-  rustCanvas.set_should_clear_screen(screenClearCheckbox.checked);
+  wasmApp.set_should_clear_screen(screenClearCheckbox.checked);
 });
 
 let simSpeedDownButton = document.getElementById("sim-speed-down");
@@ -76,7 +76,7 @@ const updateSimSpeedLabel = () => {
 // };
 let trailScaleSlider = document.getElementById("particle-trail-scale");
 trailScaleSlider.addEventListener("change", (e) => {
-  rustCanvas.set_particle_trail_scale(trailScaleSlider.value);
+  wasmApp.set_particle_trail_scale(trailScaleSlider.value);
 });
 
 window.oncontextmenu = (e) => {
@@ -86,16 +86,16 @@ window.oncontextmenu = (e) => {
 canvas.addEventListener("pointerdown", (e) => {
   if (e.button === 0) {
     if (e.ctrlKey) {
-      rustCanvas.spawn_gravity_well(e.offsetX, e.offsetY);
+      wasmApp.spawn_gravity_well(e.offsetX, e.offsetY);
     } else {
-      if (rustCanvas.try_selecting(e.offsetX, e.offsetY)) {
+      if (wasmApp.try_selecting(e.offsetX, e.offsetY)) {
         isDragging = true;
       } else {
         isSpawningParticles = true;
       }
     }
   } else if (e.button === 2) {
-    rustCanvas.try_removing(e.offsetX, e.offsetY);
+    wasmApp.try_removing(e.offsetX, e.offsetY);
   }
 });
 
@@ -103,7 +103,7 @@ canvas.addEventListener("pointermove", (e) => {
   mouseX = e.offsetX;
   mouseY = e.offsetY;
   if (isDragging) {
-    rustCanvas.move_selection_to(e.offsetX, e.offsetY);
+    wasmApp.move_selection_to(e.offsetX, e.offsetY);
   }
 });
 
@@ -112,23 +112,23 @@ window.addEventListener("pointerup", (e) => {
     isSpawningParticles = false;
     if (isDragging) {
       isDragging = false;
-      rustCanvas.release_selection();
+      wasmApp.release_selection();
     }
   }
 });
 
-const rustCanvas = RustCanvas.new();
-rustCanvas.initialize();
+const wasmApp = WasmApp.new();
+wasmApp.initialize();
 let image = new Image();
 image.onload = function() {
-    rustCanvas.add_texture_from_image("gravity_well", image);
+    wasmApp.add_texture_from_image("gravity_well", image);
 };
 image.src = './spiral.png';
 // image.src = './gravity_well.bmp';
 // image.src = 'https://raw.githubusercontent.com/austinclem1/austinclem1.github.io/main/assets/spiral.png';
 // image.src = 'https://homepages.cae.wisc.edu/~ece533/images/boy.bmp';
-rustCanvas.spawn_gravity_well(canvas.width / 2.0, canvas.height / 2.0);
-rustCanvas.initialize_particles(10000);
+wasmApp.spawn_gravity_well(canvas.width / 2.0, canvas.height / 2.0);
+wasmApp.initialize_particles(10000);
 
 const frameRateCounter = new (class {
   constructor() {
@@ -173,11 +173,11 @@ let spawnParticle = () => {
   const spawnY = mouseY + (Math.random() * randPosRange - randPosRange / 2);
   const spawnVelX = Math.random() * randVelRange - randVelRange / 2;
   const spawnVelY = Math.random() * randVelRange - randVelRange / 2;
-  rustCanvas.spawn_particle(spawnX, spawnY, spawnVelX, spawnVelY);
+  wasmApp.spawn_particle(spawnX, spawnY, spawnVelX, spawnVelY);
 };
 
 let updateParticleCountLabel = () => {
-  particleCountElement.textContent = `Particles: ${rustCanvas.get_particle_count()}`;
+  particleCountElement.textContent = `Particles: ${wasmApp.get_particle_count()}`;
 };
 
 let lastFrameTime = performance.now();
@@ -195,7 +195,7 @@ const animationFrameLoop = (currentFrameTime) => {
   while (timeSinceUpdate >= (16.7/simTicksPerFrame) &&
     updatesThisFrame <= MAX_UPDATES_PER_FRAME) {
     for (let i = 0; i < simTicksPerFrame; i++) {
-      rustCanvas.update_1(16.7);
+      wasmApp.update_1(16.7);
       if (isSpawningParticles) {
         for (let j = 0; j < particleSpawnRate; j++) {
           spawnParticle();
@@ -205,33 +205,33 @@ const animationFrameLoop = (currentFrameTime) => {
     }
     timeSinceUpdate -= 16.7;
   }
-  // rustCanvas.update_1(deltaTime * simTicksPerFrame);
+  // wasmApp.update_1(deltaTime * simTicksPerFrame);
   // if (isSpawningParticles) {
   //   for (let i = 0; i < particleSpawnRate * simTicksPerFrame; i++) {
   //     spawnParticle();
   //   }
   // }
-  rustCanvas.render();
+  wasmApp.render();
   requestAnimationFrame(animationFrameLoop);
 };
 
 // BENCHING
 // let update_1_start = performance.now();
-// rustCanvas.clear_particles();
+// wasmApp.clear_particles();
 // for (let i = 0; i < 1; i++) {
-//   rustCanvas.initialize_particles(100000);
+//   wasmApp.initialize_particles(100000);
 //   for (let j = 0; j < 600; j++) {
-//     rustCanvas.update_1(16.7);
+//     wasmApp.update_1(16.7);
 //   }
 // }
 // let update_1_elapsed = performance.now() - update_1_start;
 
 // let update_2_start = performance.now();
-// rustCanvas.clear_particles();
+// wasmApp.clear_particles();
 // for (let i = 0; i < 1; i++) {
-//   rustCanvas.initialize_particles(100000);
+//   wasmApp.initialize_particles(100000);
 //   for (let j = 0; j < 600; j++) {
-//     rustCanvas.update_2(16.7);
+//     wasmApp.update_2(16.7);
 //   }
 // }
 // let update_2_elapsed = performance.now() - update_2_start;
