@@ -1,7 +1,6 @@
 extern crate libc;
 extern crate nalgebra_glm as glm;
 mod color;
-// calls console.time.end(`name`) when it is dropped.
 mod gravity_well;
 mod particle;
 mod renderer;
@@ -19,6 +18,10 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use web_sys::{ console, HtmlImageElement, WebGlRenderingContext };
 
+// A timer that calls console.time(`name`) on creation and
+// calls console.time.end(`name`) when it is dropped.
+// Useful for timing how long a function takes when debugging
+// in the browser.
 struct Timer<'a> {
     name: &'a str,
 }
