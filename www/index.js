@@ -123,7 +123,9 @@ let image = new Image();
 image.onload = function() {
     rustCanvas.add_texture_from_image("gravity_well", image);
 };
-image.src = './gravity_well.bmp';
+image.src = './spiral.png';
+// image.src = './gravity_well.bmp';
+// image.src = 'https://raw.githubusercontent.com/austinclem1/austinclem1.github.io/main/assets/spiral.png';
 // image.src = 'https://homepages.cae.wisc.edu/~ece533/images/boy.bmp';
 rustCanvas.spawn_gravity_well(canvas.width / 2.0, canvas.height / 2.0);
 rustCanvas.initialize_particles(10000);
