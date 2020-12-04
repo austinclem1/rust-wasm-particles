@@ -1,7 +1,6 @@
 "use strict";
 
-import { WasmApp } from "rust-graphics";
-// import { memory } from "rust-graphics/rust_graphics_bg";
+import { WasmApp } from "rust-webgl-particles-backend";
 
 const MAX_UPDATES_PER_FRAME = 10;
 

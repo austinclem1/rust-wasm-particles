@@ -1,5 +1,5 @@
 [package]
-name = "rust-graphics"
+name = "rust-webgl-particles-backend"
 version = "0.1.0"
 authors = ["Austin Clements <austinclementsbass@gmail.com>"]
 edition = "2018"
