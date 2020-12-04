@@ -291,22 +291,23 @@ impl Renderer {
     }
 
     pub fn render_gravity_wells(&self, gravity_wells: &Vec<GravityWell>) {
+        // Coordinates are x, y, u, t
         let vertex_array = vec![
             // Triangle 1:
             // top right
             GravityWell::RADIUS as f32,
             -(GravityWell::RADIUS as f32),
             1.0,
-            1.0,
+            0.0,
             // top left
             -(GravityWell::RADIUS as f32),
             -(GravityWell::RADIUS as f32),
-            1.0,
-            1.0,
+            0.0,
+            0.0,
             // bottom left
             -(GravityWell::RADIUS as f32),
             GravityWell::RADIUS as f32,
-            1.0,
+            0.0,
             1.0,
 
             // Triangle 2:
@@ -314,11 +315,11 @@ impl Renderer {
             GravityWell::RADIUS as f32,
             -(GravityWell::RADIUS as f32),
             1.0,
-            1.0,
+            0.0,
             // bottom left
             -(GravityWell::RADIUS as f32),
             GravityWell::RADIUS as f32,
-            1.0,
+            0.0,
             1.0,
             // bottom right
             GravityWell::RADIUS as f32,
