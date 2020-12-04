@@ -15,7 +15,7 @@ use std::collections::VecDeque;
 use vecmath;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
-use web_sys::{ console, HtmlImageElement, WebGlRenderingContext };
+use web_sys::{ console, HtmlCanvasElement, HtmlImageElement, WebGlRenderingContext };
 
 // A timer that calls console.time(`name`) on creation and
 // calls console.time.end(`name`) when it is dropped.
@@ -27,14 +27,14 @@ struct Timer<'a> {
 
 impl<'a> Timer<'a> {
     pub fn new(name: &'a str) -> Timer<'a> {
-        // console::time_with_label(name);
+        console::time_with_label(name);
         Timer { name }
     }
 }
 
 impl<'a> Drop for Timer<'a> {
     fn drop(&mut self) {
-        // console::time_end_with_label(self.name);
+        console::time_end_with_label(self.name);
     }
 }
 
@@ -80,10 +80,10 @@ impl WasmApp {
         rust_canvas
     }
 
-    pub fn initialize(&mut self) -> Result<(), JsValue> {
-        let document = web_sys::window().unwrap().document().unwrap();
-        let canvas = document.get_element_by_id("canvas").unwrap();
-        let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
+    pub fn connect_canvas_element(&mut self, canvas: HtmlCanvasElement) -> Result<(), JsValue> {
+        // let document = web_sys::window().unwrap().document().unwrap();
+        // let canvas = document.get_element_by_id("canvas").unwrap();
+        // let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
 
         self.width = canvas.width();
         self.height = canvas.height();

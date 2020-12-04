@@ -1,7 +1,7 @@
 "use strict";
 
 import { WasmApp } from "rust-graphics";
-import { memory } from "rust-graphics/rust_graphics_bg";
+// import { memory } from "rust-graphics/rust_graphics_bg";
 
 const MAX_UPDATES_PER_FRAME = 10;
 
@@ -18,10 +18,11 @@ let simTicksPerFrame = 1;
 //   ).textContent = `Particle Trail Length: ${particleTrailLength}`;
 // };
 
-
 window.oncontextmenu = (e) => {
   e.preventDefault();
 };
+
+const canvas = document.getElementById("canvas");
 
 canvas.addEventListener("pointerdown", (e) => {
   if (e.button === 0) {
@@ -58,12 +59,16 @@ window.addEventListener("pointerup", (e) => {
 });
 
 const wasmApp = WasmApp.new();
-wasmApp.initialize();
+// wasmApp.initialize_canvas();
+wasmApp.connect_canvas_element(canvas);
 let image = new Image();
-image.onload = function() {
-    wasmApp.add_texture_from_image("gravity_well", image);
-};
-image.src = './spiral.png';
+image.src = '../assets/spiral.png';
+image.addEventListener('load', function() {
+	wasmApp.add_texture_from_image("gravity_well", image);
+});
+// image.onload = function() {
+//     wasmApp.add_texture_from_image("gravity_well", image);
+// };
 // image.src = './gravity_well.bmp';
 // image.src = 'https://raw.githubusercontent.com/austinclem1/austinclem1.github.io/main/assets/spiral.png';
 // image.src = 'https://homepages.cae.wisc.edu/~ece533/images/boy.bmp';
