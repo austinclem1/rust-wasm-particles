@@ -3,88 +3,54 @@
 import { WasmApp } from "rust-webgl-particles-backend";
 import { FramerateDisplay } from "./framerate_display.js";
 
-const MAX_UPDATES_PER_FRAME = 10;
-
-let isSpawningParticles = false;
-let particleSpawnRate = 5;
-let isDragging = false;
+// Globals for mouse position
 let mouseX = 0;
 let mouseY = 0;
+
+// How many physics steps to simulate per graphics rendering frame
 let simTicksPerFrame = 1;
+// Prevents "spiral of death" loop if the cpu can't keep up with
+// physics updates, in the worst case the physics will now slow down
+// if we've updated MAX_UPDATES_PER_FRAME steps this graphical frame
+const MAX_UPDATES_PER_FRAME = 10;
 
-// const updateParticleTrailLengthLabel = () => {
-//   document.getElementById(
-//     "particle-trail-length-label"
-//   ).textContent = `Particle Trail Length: ${particleTrailLength}`;
-// };
+// How fast particles spawn when the user holds left mouse button
+const particleSpawnRate = 5;
 
-window.oncontextmenu = (e) => {
-  e.preventDefault();
-};
+// More globals for spawning particles and dragging gravity wells
+let isSpawningParticles = false;
+let isDragging = false;
 
 const canvas = document.getElementById("canvas");
 
-canvas.addEventListener("pointerdown", (e) => {
-  if (e.button === 0) {
-    if (e.ctrlKey) {
-      wasmApp.spawn_gravity_well(e.offsetX, e.offsetY);
-    } else {
-      if (wasmApp.try_selecting(e.offsetX, e.offsetY)) {
-        isDragging = true;
-      } else {
-        isSpawningParticles = true;
-      }
-    }
-  } else if (e.button === 2) {
-    wasmApp.try_removing(e.offsetX, e.offsetY);
-  }
-});
+// Prevent right-click menu from showing on canvas
+// so we can right-click on the gravity well to delete it
+canvas.oncontextmenu = (e) => {
+	e.preventDefault();
+};
 
-canvas.addEventListener("pointermove", (e) => {
-  mouseX = e.offsetX;
-  mouseY = e.offsetY;
-  if (isDragging) {
-    wasmApp.move_selection_to(e.offsetX, e.offsetY);
-  }
-});
+// Set up UI with helper functions
+addEventCallbacksToCanvas(canvas);
+connectUICallbacks();
 
-window.addEventListener("pointerup", (e) => {
-  if (e.button === 0) {
-    isSpawningParticles = false;
-    if (isDragging) {
-      isDragging = false;
-      wasmApp.release_selection();
-    }
-  }
-});
-
+// Here is our wasm backend instance that handles
+// the actual particle simulation
 const wasmApp = WasmApp.new();
-// wasmApp.initialize_canvas();
 wasmApp.connect_canvas_element(canvas);
-let image = new Image();
-image.src = '../assets/spiral.png';
-image.addEventListener('load', function() {
-	wasmApp.add_texture_from_image("gravity_well", image);
-});
-// image.onload = function() {
-//     wasmApp.add_texture_from_image("gravity_well", image);
-// };
-// image.src = './gravity_well.bmp';
-// image.src = 'https://raw.githubusercontent.com/austinclem1/austinclem1.github.io/main/assets/spiral.png';
-// image.src = 'https://homepages.cae.wisc.edu/~ece533/images/boy.bmp';
+
+// Load the gravity well image and store it as a webGl texture
+// in the wasm app
+{
+	const image = new Image();
+	image.src = '../assets/spiral.png';
+	image.addEventListener('load', function() {
+		wasmApp.add_texture_from_image("gravity_well", image);
+	});
+}
+
+// Initialize canvas with one gravity well in the center, and some particles
 wasmApp.spawn_gravity_well(canvas.width / 2.0, canvas.height / 2.0);
 wasmApp.initialize_particles(10000);
-
-
-let spawnParticle = () => {
-  const randPosRange = 8;
-  const randVelRange = 150;
-  const spawnX = mouseX + (Math.random() * randPosRange - randPosRange / 2);
-  const spawnY = mouseY + (Math.random() * randPosRange - randPosRange / 2);
-  const spawnVelX = Math.random() * randVelRange - randVelRange / 2;
-  const spawnVelY = Math.random() * randVelRange - randVelRange / 2;
-  wasmApp.spawn_particle(spawnX, spawnY, spawnVelX, spawnVelY);
-};
 
 // Keeps track of recent fps measurements and updates the fps label
 const framerateDisplay = new FramerateDisplay();
