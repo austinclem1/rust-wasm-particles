@@ -196,6 +196,10 @@ function addEventCallbacksToCanvas(canvas) {
 		mouseY = e.offsetY;
 		if (isDragging) {
 			wasmApp.move_selection_to(e.offsetX, e.offsetY);
+		} else {
+			if (!wasmApp.try_selecting(e.offsetX, e.offsetY)) {
+				wasmApp.release_selection();
+			}
 		}
 	});
 

@@ -1,4 +1,4 @@
-// Renderer struct that handles WebGl calls, and contains data for rendering,
+// enderer struct that handles WebGl calls, and contains data for rendering,
 // including textures, matrices for projecting into normalized screen coordinates,
 // and shaders.
 
@@ -286,6 +286,11 @@ impl Renderer {
             .context
             .get_uniform_location(&self.gravity_well_shader, "u_Sampler")
             .expect("failed to get u_Sampler uniform location");
+        
+        let u_is_selected_location = self
+            .context
+            .get_uniform_location(&self.gravity_well_shader, "u_IsSelected")
+            .expect("failed to get u_IsSelected uniform location");
 
         let position_attrib_location = self
             .context
@@ -341,99 +346,14 @@ impl Renderer {
                 false,
                 model_mat.as_slice(),
             );
-            // self.context.uniform1i(
-            //     Some(&u_is_selected_location),
-            //     gravity_well.is_selected as i32,
-            // );
+            self.context.uniform1i(
+                Some(&u_is_selected_location),
+                gravity_well.is_selected as i32,
+            );
             self.context
                 .draw_arrays(WebGlRenderingContext::TRIANGLES, 0, 6);
         }
     }
-
-    // fn initialize_shaders(&mut self) {
-    //     let particle_vertex_shader = webgl_helpers::compile_shader(
-    //         &context,
-    //         WebGlRenderingContext::VERTEX_SHADER,
-    //         r#"
-    //         attribute vec2 a_Position;
-    //         attribute vec4 a_Color;
-
-    //         // uniform float u_TrailScale;
-    //         uniform mat4 u_Proj;
-
-    //         varying vec4 v_Color;
-
-    //         void main() {
-    //             gl_Position = u_Proj * vec4(a_Position, 0.0, 1.0);
-    //             v_Color = a_Color;
-    //         }
-    //     "#,
-    //     )
-    //     .unwrap();
-    //     let particle_fragment_shader = webgl_helpers::compile_shader(
-    //         &context,
-    //         WebGlRenderingContext::FRAGMENT_SHADER,
-    //         r#"
-            
-    //         precision mediump float;
-    //         varying vec4 v_Color;
-
-    //         void main() {
-    //             gl_FragColor = v_Color;
-    //         }
-    //     "#,
-    //     )
-    //     .unwrap();
-    //     let particle_shader =
-    //         link_program(&context, &particle_vertex_shader, &particle_fragment_shader).unwrap();
-    //     let gravity_well_vertex_shader = webgl_helpers::compile_shader(
-    //         &context,
-    //         WebGlRenderingContext::VERTEX_SHADER,
-    //         r#"
-    //         attribute vec2 a_Position;
-    //         attribute vec2 a_TexCoord;
-            
-    //         uniform bool u_IsSelected;
-    //         uniform mat4 u_Model;
-    //         uniform mat4 u_Proj;
-
-    //         varying mediump vec2 v_TexCoord;
-            
-    //         void main() {
-    //             gl_Position = u_Proj * u_Model * vec4(a_Position, 0.0, 1.0);
-    //             v_TexCoord = a_TexCoord;
-    //             // if(u_IsSelected) {
-    //             //     v_Color = vec4(0.3, 0.5, 1.0, 1.0);
-    //             // } else {
-    //             //     v_Color = vec4(0.5, 0.5, 0.5, 1.0);
-    //             // }
-    //         }
-    //         "#,
-    //     )
-    //     .unwrap();
-    //     let gravity_well_fragment_shader = webgl_helpers::compile_shader(
-    //         &context,
-    //         WebGlRenderingContext::FRAGMENT_SHADER,
-    //         r#"
-    //         // precision mediump float;
-
-    //         varying mediump vec2 v_TexCoord;
-
-    //         uniform sampler2D u_Sampler;
-
-    //         void main() {
-    //             gl_FragColor = texture2D(u_Sampler, v_TexCoord);
-    //         }
-    //     "#,
-    //     )
-    //     .unwrap();
-    //     let gravity_well_shader = link_program(
-    //         &context,
-    //         &gravity_well_vertex_shader,
-    //         &gravity_well_fragment_shader,
-    //     )
-    //     .unwrap();
-    // }
 }
 
 fn compile_particle_shader(context: &WebGlRenderingContext) -> Result<WebGlProgram, String> {
@@ -480,7 +400,6 @@ fn compile_gravity_well_shader(context: &WebGlRenderingContext) -> Result<WebGlP
         attribute vec2 a_Position;
         attribute vec2 a_TexCoord;
         
-        uniform bool u_IsSelected;
         uniform mat4 u_Model;
         uniform mat4 u_Proj;
 
@@ -489,11 +408,6 @@ fn compile_gravity_well_shader(context: &WebGlRenderingContext) -> Result<WebGlP
         void main() {
             gl_Position = u_Proj * u_Model * vec4(a_Position, 0.0, 1.0);
             v_TexCoord = a_TexCoord;
-            // if(u_IsSelected) {
-            //     v_Color = vec4(0.3, 0.5, 1.0, 1.0);
-            // } else {
-            //     v_Color = vec4(0.5, 0.5, 0.5, 1.0);
-            // }
         }
         "#,
     )?;
@@ -501,14 +415,19 @@ fn compile_gravity_well_shader(context: &WebGlRenderingContext) -> Result<WebGlP
         &context,
         WebGlRenderingContext::FRAGMENT_SHADER,
         r#"
-        // precision mediump float;
+        precision mediump float;
 
-        varying mediump vec2 v_TexCoord;
+        varying vec2 v_TexCoord;
 
+        uniform bool u_IsSelected;
         uniform sampler2D u_Sampler;
 
         void main() {
-            gl_FragColor = texture2D(u_Sampler, v_TexCoord);
+            vec4 tint = vec4(1.0, 1.0, 1.0, 1.0);
+            if(u_IsSelected) {
+                tint = vec4(1.6, 1.6, 1.8, 1.0);
+            }
+            gl_FragColor = texture2D(u_Sampler, v_TexCoord) * tint;
         }
     "#,
     )?;
