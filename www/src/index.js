@@ -73,22 +73,14 @@ document.addEventListener('visibilitychange', (_event) => {
 		// Push lastFrameTime ahead by however much time elapsed during pause
 		// lastFrameTime += performance.now() - timestampAtPause;
 		pauseTimeElapsed = performance.now() - timestampAtPause;
-		console.log('pauseTimeElapsed on focus: ', pauseTimeElapsed);
 	}
 });
 
 // Main frame redraw and update loop
 const animationFrameLoop = (currentFrameTime) => {
-	let debugLastFrameTime = lastFrameTime;
-	let debugPauseTimeElapsed = pauseTimeElapsed;
 	lastFrameTime += pauseTimeElapsed;
 	pauseTimeElapsed = 0;
 	deltaTime = currentFrameTime - lastFrameTime;
-	if (deltaTime > 1000) {
-		console.log('lastFrameTime: ', debugLastFrameTime);
-		console.log('pauseTimeElapsed: ', debugPauseTimeElapsed);
-		console.log('deltaTime: ', deltaTime);
-	}
 	lastFrameTime = currentFrameTime;
 
 	// Update labels in case some values have changed
