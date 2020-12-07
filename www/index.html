@@ -15,24 +15,28 @@
 					<div class="row">
 						<canvas id="canvas" width="800" height="600"</canvas>
 					</div>
-					<h2><span class="badge badge-secondary">Instructions:</span></h2>
-					<h5><a href="https://github.com/austinclem1/rust-wasm-particles">View Source Code Here</a></h5>
 					<br />
-					<p class="badge badge-primary">Left-Click to Spawn Particles</p>
-					<br />
-					<p class="badge badge-primary">Click and Drag to Move Gravity Well</p>
-					<br />
-					<p class="badge badge-primary">Right-Click to Delete a Gravity Well</p>
-					<br />
-					<p class="badge badge-primary">Ctrl-Click to Spawn a Gravity Well</p>
+					<div class="card text-white bg-primary">
+						<div class="card-body">
+							<h4><b>Instructions</b>:</h4>
+							<h5><b><a href="https://github.com/austinclem1/rust-wasm-particles">View Source Code Here</a></b></h5>
+							Left-Click to Spawn Particles
+							<br />
+							Click and Drag to Move Gravity Well
+							<br />
+							Right-Click to Delete a Gravity Well
+							<br />
+							Ctrl-Click to Spawn a Gravity Well
+						</div>
+					</div>
 				</div>
 				<div class="col">
 					<div class="card text-white bg-dark">
-						<div class="card-header">Settings</div>
+						<div class="card-header"><h3>Settings</h3></div>
 						<div class="card-body">
-							<h3><label id="particle-count-label" class="badge badge-primary"></label></h3>
+							<h5><label id="particle-count-label" class="badge badge-primary"></label></h5>
 							<br />
-							<h4><label id="fps-label" class="badge badge-primary"></label></h4>
+							<h5><label id="fps-label" class="badge badge-primary"></label></h5>
 							<label id="sim-speed-label" class="label label-primary"></label>
 							<br />
 							<button id="sim-speed-down-button" class="btn btn-primary">-</button>
