@@ -2,50 +2,52 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Rust Graphics</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<!-- Bootstrap -->
 		<link rel="stylesheet"
-			href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
-			integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO"
-			crossorigin="anonymous">
-		<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootswatch/4.5.2/cerulean/bootstrap.min.css">
+		href="https://stackpath.bootstrapcdn.com/bootswatch/4.5.2/darkly/bootstrap.min.css">
   </head>
   <body>
 		<div class="container">
 			<div class="row">
 				<div class="col">
-					<canvas id="canvas" width="800" height="600"</canvas>
+					<div class="row">
+						<canvas id="canvas" width="800" height="600"</canvas>
+					</div>
+					<h2><span class="badge badge-secondary">Instructions:</span></h2>
+					<h5><a href="https://github.com/austinclem1/rust-wasm-particles">View Source Code Here</a></h5>
+					<br />
+					<p class="badge badge-primary">Left-Click to Spawn Particles</p>
+					<br />
+					<p class="badge badge-primary">Click and Drag to Move Gravity Well</p>
+					<br />
+					<p class="badge badge-primary">Right-Click to Delete a Gravity Well</p>
+					<br />
+					<p class="badge badge-primary">Ctrl-Click to Spawn a Gravity Well</p>
 				</div>
 				<div class="col">
-					<div>
-					<label id="particle-count-label" class="label label-info"></label>
-					</div>
-					<div>
-					<label id="fps-label" class="label label-info"></label>
-					</div>
-					<div class="card">
+					<div class="card text-white bg-dark">
 						<div class="card-header">Settings</div>
 						<div class="card-body">
-							<div class="card-body">
-								<button id="sim-speed-down-button" class="btn btn-primary">-</button>
-								<label id="sim-speed-label" class="label label-primary"></label>
-								<button id="sim-speed-up-button" class="btn btn-primary">+</button>
-							</div>
+							<h3><label id="particle-count-label" class="badge badge-primary"></label></h3>
+							<br />
+							<h4><label id="fps-label" class="badge badge-primary"></label></h4>
+							<label id="sim-speed-label" class="label label-primary"></label>
+							<br />
+							<button id="sim-speed-down-button" class="btn btn-primary">-</button>
+							<button id="sim-speed-up-button" class="btn btn-primary">+</button>
 						</div>
-							<div class="card">
-								<div class="card-body">
-									Gravity Well Mass
-									<input type="range" min="1" max="260" id="gravity-well-mass-slider" />
-								</div>
-							</div>
-							<div class="card">
-								<div class="card-body">
-									Particle Trail Length
-									<input type="range" min="0.01" max="0.2" step="0.01"
-										id="trail-scale-slider" />
-								</div>
-							</div>
+						<div class="card-body">
+							Gravity Well Mass
+							<br />
+							<input type="range" min="1" max="260" id="gravity-well-mass-slider" />
+						</div>
+						<div class="card-body">
+							Particle Trail Length
+							<br />
+							<input type="range" min="0.01" max="0.2" step="0.01" id="trail-scale-slider" />
+						</div>
 						<div class="card-body">
 							<button id="remove-some-particles-button" class="btn btn-primary">
 								Remove 250 Particles

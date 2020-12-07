@@ -24,8 +24,8 @@ export class FramerateDisplay {
 
 		this.fpsLabel.innerText = `
 Frames Per Second
-avg of last 100: ${Math.round(mean)}
-min of last 100: ${Math.round(min)}
+Average of Last 100: ${Math.round(mean)}
+Minimum of Last 100: ${Math.round(min)}
 `.trim();
 	}
 }
