@@ -13,12 +13,11 @@ use rand::Rng;
 use renderer::Renderer;
 use std::collections::VecDeque;
 use vecmath;
-use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use web_sys::{ console, HtmlCanvasElement, HtmlImageElement, WebGlRenderingContext };
 
-// A timer that calls console.time(`name`) on creation and
-// calls console.time.end(`name`) when it is dropped.
+// A timer that calls console.time(name) on creation and
+// calls console.time.end(name) when it is dropped.
 // Useful for timing how long a function takes when debugging
 // in the browser.
 struct Timer<'a> {
@@ -64,7 +63,7 @@ impl WasmApp {
         let particles: VecDeque<Particle> = VecDeque::new();
         let particle_vertex_array: Vec<f32> = Vec::new();
         let rng = rand::thread_rng();
-        let mut rust_canvas = WasmApp {
+        let rust_canvas = WasmApp {
             width: 0,
             height: 0,
             renderer: None,
@@ -369,10 +368,6 @@ impl WasmApp {
             renderer.textures.insert(name, texture);
         }
     }
-}
-
-impl WasmApp {
-    const SOFTENING_CONSTANT: f64 = 600.0;
 }
 
 fn is_power_of_2(n: u32) -> bool {
