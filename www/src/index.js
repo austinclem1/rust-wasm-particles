@@ -29,6 +29,9 @@ canvas.oncontextmenu = (e) => {
 	e.preventDefault();
 };
 
+// Improve touch screen interaction
+canvas.style.touchAction = "none";
+
 // Set up UI with helper functions
 addEventCallbacksToCanvas(canvas);
 connectUICallbacks();
@@ -143,11 +146,6 @@ function connectUICallbacks() {
 	// Borders Active Checkbox
 	document.getElementById("borders-active-checkbox").onclick = function() {
 		wasmApp.set_borders_active(this.checked);
-	}
-
-	// Clear Screen Checkbox
-	document.getElementById("clear-screen-checkbox").onclick = function() {
-		wasmApp.set_should_clear_screen(this.checked);
 	}
 
 	// Sim Speed Down Button
