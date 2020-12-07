@@ -9,6 +9,6 @@ module.exports = {
 	},
 	mode: "development",
 	plugins: [
-		new CopyWebpackPlugin(['index.html', './assets/spiral.png'])
+		new CopyWebpackPlugin(['index.html'])
 	],
 };

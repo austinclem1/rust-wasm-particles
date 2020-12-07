@@ -65,7 +65,7 @@ let timeSinceUpdate = 0.0;
 
 // Callback to "pause" time when window is out of focus
 // Essentially, any time passed while the window is out of focus
-// is ignored for time calculations in the frame loop
+// is ignored for time calculations in the frame loop once we return focus
 let timestampAtPause = 0.0;
 let pauseTimeElapsed = 0.0;
 document.addEventListener('visibilitychange', (_event) => {
