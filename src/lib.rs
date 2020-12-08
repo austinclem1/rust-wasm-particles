@@ -218,14 +218,19 @@ impl WasmApp {
         self.gravity_wells.push(GravityWell::new([x, y], 200.0));
     }
 
+    // TODO maybe have WasmApp hold onto a reference to the ONE selected gravity well
+    // hopefully will be easier to prevent multiple hover/selection highlights at once
     pub fn try_selecting(&mut self, x: i32, y: i32) -> bool {
-        for well in &mut self.gravity_wells {
-            if well.is_point_inside(x, y) {
+        let mut found = false;
+        for well in self.gravity_wells.iter_mut().rev() {
+            if well.is_point_inside(x, y) && !found {
                 well.is_selected = true;
-                return true;
+                found = true;
+            } else {
+                well.is_selected = false;
             }
         }
-        false
+        found
     }
 
     pub fn release_selection(&mut self) {
