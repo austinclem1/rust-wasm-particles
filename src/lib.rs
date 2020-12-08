@@ -234,11 +234,11 @@ impl WasmApp {
         }
     }
 
-    pub fn move_selection_to(&mut self, new_x: f64, new_y: f64) {
+    pub fn move_selection_by(&mut self, x: f64, y: f64) {
         for well in &mut self.gravity_wells {
             if well.is_selected {
-                well.pos[0] = new_x;
-                well.pos[1] = new_y;
+                well.pos[0] += x;
+                well.pos[1] += y;
             }
         }
     }

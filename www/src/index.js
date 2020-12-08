@@ -192,10 +192,14 @@ function addEventCallbacksToCanvas(canvas) {
 	});
 
 	canvas.addEventListener("pointermove", (e) => {
+		// Calculate how much mouse has moved since last frame
+		// and use that to move gravity well if it is being dragged
+		let movementX = e.offsetX - mouseX;
+		let movementY = e.offsetY - mouseY;
 		mouseX = e.offsetX;
 		mouseY = e.offsetY;
 		if (isDragging) {
-			wasmApp.move_selection_to(e.offsetX, e.offsetY);
+			wasmApp.move_selection_by(movementX, movementY);
 		} else {
 			if (!wasmApp.try_selecting(e.offsetX, e.offsetY)) {
 				wasmApp.release_selection();
