@@ -176,8 +176,10 @@ function connectUICallbacks() {
 // Set up mouse interaction through canvas events
 function addEventCallbacksToCanvas(canvas) {
 	canvas.addEventListener("pointerdown", (e) => {
-		mouseX = (e.pageX - canvas.offsetLeft);
-		mouseY = (e.pageY - canvas.offsetTop);
+		// mouseX = (e.clientX - canvas.offsetLeft);
+		// mouseY = (e.clientY - canvas.offsetTop);
+		mouseX = e.offsetX;
+		mouseY = e.offsetY;
 		if (e.button === 0) {
 			if (e.ctrlKey) {
 				wasmApp.spawn_gravity_well(e.offsetX, e.offsetY);
@@ -196,10 +198,14 @@ function addEventCallbacksToCanvas(canvas) {
 	canvas.addEventListener("pointermove", (e) => {
 		// Calculate how much mouse has moved since last frame
 		// and use that to move gravity well if it is being dragged
-		let movementX = (e.pageX - canvas.offsetLeft) - mouseX;
-		let movementY = (e.pageY - canvas.offsetTop) - mouseY;
-		mouseX = (e.pageX - canvas.offsetLeft);
-		mouseY = (e.pageY - canvas.offsetTop);
+		// let movementX = (e.pageX - canvas.offsetLeft) - mouseX;
+		// let movementY = (e.pageY - canvas.offsetTop) - mouseY;
+		// mouseX = (e.pageX - canvas.offsetLeft);
+		// mouseY = (e.pageY - canvas.offsetTop);
+		let movementX = e.offsetX - mouseX;
+		let movementY = e.offsetY - mouseY;
+		mouseX = e.offsetX;
+		mouseY = e.offsetY;
 		if (isDragging) {
 			wasmApp.move_selection_by(movementX, movementY);
 		} else {
