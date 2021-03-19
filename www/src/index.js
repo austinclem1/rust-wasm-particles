@@ -53,7 +53,7 @@ wasmApp.connect_canvas_element(canvas);
 
 // Initialize canvas with one gravity well in the center, and some particles
 wasmApp.spawn_gravity_well(canvas.width / 2.0, canvas.height / 2.0);
-wasmApp.initialize_particles(10000);
+wasmApp.initialize_particles(3000);
 
 // Keeps track of recent fps measurements and updates the fps label
 const framerateDisplay = new FramerateDisplay();
